@@ -1100,7 +1100,7 @@ if (error) {
 }
 
 document.getElementById('cTermos').checked = false;
-  const { error } = await sb.auth.signUp({
+  const result = await sb.auth.signUp({
     email: email,
     password: senha,
     options: {
@@ -1110,8 +1110,8 @@ document.getElementById('cTermos').checked = false;
     }
   });
 
-  if (error) {
-    cadAlert.textContent = error.message;
+ if (result.error) {
+ cadAlert.textContent = result.error.message;
     cadAlert.style.display = 'block';
     return;
   }
