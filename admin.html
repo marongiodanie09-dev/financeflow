@@ -666,7 +666,11 @@ document.querySelectorAll('[data-page]').forEach(item=>{
 });
 
 function renderEst(){
-  renderStats('sg2');const users=Admin.list(),tot=users.length||1;
+  renderStats('sg2');
+
+const rawUsers = Admin.list();
+const users = Array.isArray(rawUsers) ? rawUsers : [];
+const tot = users.length || 1;
   const sc=[{k:'ativo',l:'Ativos',c:'g'},{k:'pendente',l:'Pendentes',c:'y'},{k:'vencido',l:'Vencidos',c:'r'},{k:'bloqueado',l:'Bloqueados',c:'gray'}];
   document.getElementById('statusBars').innerHTML=sc.map(s=>{const c=users.filter(u=>u.statusPagamento===s.k).length,p=Math.round(c/tot*100);return`<div class="br"><span class="bl">${s.l}</span><div class="bt"><div class="bf ${s.c}" style="width:${p}%"></div></div><span class="bv">${c} <small>(${p}%)</small></span></div>`}).join('');
   document.getElementById('planoBars').innerHTML=['basico','pro'].map(pl=>{const c=users.filter(u=>u.plano===pl).length,p=Math.round(c/tot*100);return`<div class="br"><span class="bl">${pl.charAt(0).toUpperCase()+pl.slice(1)}</span><div class="bt"><div class="bf g" style="width:${p}%"></div></div><span class="bv">${c} <small>(${p}%)</small></span></div>`}).join('');
@@ -698,17 +702,24 @@ async function checkAdminSession() {
     return;
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin, ativo, pagamento_ok')
-    .eq('id', session.user.id)
-    .single();
+const { data: profile, error } = await sb
+  .from('profiles')
+  .select('is_admin, ativo, pagamento_ok')
+  .eq('id', session.user.id)
+  .single();
 
-  if (!profile || !profile.is_admin || !profile.ativo || !profile.pagamento_ok) {
-    await sb.auth.signOut();
-    initLogin();
-    return;
-  }
+if (error) {
+  console.error('Erro ao buscar perfil:', error.message);
+  await sb.auth.signOut();
+  initLogin();
+  return;
+}
+
+if (!profile || !profile.is_admin || !profile.ativo || !profile.pagamento_ok) {
+  await sb.auth.signOut();
+  initLogin();
+  return;
+}
 
   initPanel();
 }
