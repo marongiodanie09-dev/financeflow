@@ -630,6 +630,13 @@ function setLoginLoad(on){
 }
 
 async function doLogin(){
+  const sb = window.sb;
+
+  if (!sb) {
+    setLoginAlert('Supabase não conectado.', 'error');
+    return;
+  }
+
   const e = document.getElementById('lEmail').value.trim();
   const s = document.getElementById('lSenha').value;
 
@@ -701,6 +708,9 @@ async function doLogin(){
     paymentOk: profile.pagamento_ok,
     statusPagamento: profile.pagamento_ok ? 'ativo' : 'pendente'
   };
+localStorage.setItem('ff_user_id', profile.id);
+localStorage.setItem('ff_user_email', profile.email || '');
+localStorage.setItem('ff_user_nome', profile.nome || 'Usuário');
 
   setTimeout(() => {
     goTo('s-dash');
@@ -1110,8 +1120,54 @@ setTimeout(() => {
   goTo('s-login');
 }, 1500);
 }
+async function checkSession() {
+  const sb = window.sb;
 
-startApp();
+  if (!sb) return;
+
+  const { data, error } = await sb.auth.getSession();
+
+  if (error) {
+    console.error('Erro ao verificar sessão:', error);
+    return;
+  }
+
+  const session = data?.session;
+
+  if (!session || !session.user) return;
+
+  const user = session.user;
+
+  const { data: profile, error: profileError } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError || !profile) return;
+  if (!profile.ativo) return;
+  if (!profile.pagamento_ok) return;
+
+  CU = {
+    id: profile.id,
+    nome: profile.nome || 'Usuário',
+    email: profile.email,
+    paymentOk: profile.pagamento_ok,
+    statusPagamento: profile.pagamento_ok ? 'ativo' : 'pendente'
+  };
+
+  localStorage.setItem('ff_user_id', profile.id);
+  localStorage.setItem('ff_user_email', profile.email || '');
+  localStorage.setItem('ff_user_nome', profile.nome || 'Usuário');
+
+  goTo('s-dash');
+  initDash();
+}
+
+(async () => {
+  startApp();
+  await checkSession();
+})();
 </script>
 </body>
 </html>
