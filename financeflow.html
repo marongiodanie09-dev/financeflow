@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FinanceFlow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+/* =====================================================
+   RESET & VARIÁVEIS
+   ===================================================== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f14;--bg2:#131720;--bg3:#1a1f2e;--border:#252b3b;
+  --text:#e8ecf4;--text2:#8892a4;--text3:#555f70;
+  --accent:#4f8ef7;--accent2:#3a70d4;
+  --green:#22d07a;--green-bg:rgba(34,208,122,.12);
+  --yellow:#f5c842;--yellow-bg:rgba(245,200,66,.12);
+  --red:#f25c5c;--red-bg:rgba(242,92,92,.12);
+  --blue-bg:rgba(79,142,247,.1);
+  --purple:#a78bfa;--purple-bg:rgba(167,139,250,.1);
+  --radius:12px;--radius-sm:8px;
+  --shadow:0 8px 32px rgba(0,0,0,.5);
+  --transition:.2s ease;--sidebar-w:240px;
+}
+html{font-size:15px}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* =====================================================
+   SCREENS — SPA
+   ===================================================== */
+.screen{display:none;width:100%;min-height:100vh}
+.screen.active{display:flex}
+.screen-auth{flex-direction:column;position:relative;overflow-y:auto}
+.screen-app{flex-direction:row;position:relative;overflow:hidden}
+
+/* =====================================================
+   AUTH — BACKGROUND
+   ===================================================== */
+.auth-bg{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.auth-bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(79,142,247,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(79,142,247,.04) 1px,transparent 1px);background-size:40px 40px}
+.auth-bg-glow{position:absolute;top:-200px;left:-200px;width:600px;height:600px;background:radial-gradient(circle,rgba(79,142,247,.12) 0%,transparent 70%);border-radius:50%;animation:glowPulse 6s ease-in-out infinite alternate}
+.auth-bg-glow-alt{top:auto;bottom:-200px;left:auto;right:-100px;background:radial-gradient(circle,rgba(34,208,122,.08) 0%,transparent 70%)}
+.auth-bg-glow-red{background:radial-gradient(circle,rgba(242,92,92,.1) 0%,transparent 70%)}
+.auth-bg-glow-purple{background:radial-gradient(circle,rgba(167,139,250,.1) 0%,transparent 70%)}
+@keyframes glowPulse{from{opacity:.6;transform:scale(1)}to{opacity:1;transform:scale(1.15)}}
+
+/* =====================================================
+   AUTH — LAYOUT
+   ===================================================== */
+.auth-wrap{position:relative;z-index:10;display:flex;width:100%;min-height:100vh;flex:1}
+.auth-panel-left{flex:1;display:flex;flex-direction:column;justify-content:center;padding:60px 60px 60px 72px;background:linear-gradient(135deg,rgba(79,142,247,.06) 0%,transparent 60%);border-right:1px solid var(--border);gap:48px}
+.auth-panel-right{width:480px;display:flex;align-items:center;justify-content:center;padding:40px;flex-shrink:0}
+.auth-brand{display:flex;align-items:center;gap:12px;font-size:1.1rem;color:var(--text)}
+.auth-logo-icon{font-size:1.6rem;color:var(--accent);line-height:1}
+.auth-logo-text strong{color:var(--accent)}
+.auth-tagline h1{font-size:2.4rem;font-weight:800;line-height:1.2;color:var(--text);margin-bottom:16px;letter-spacing:-.02em}
+.auth-tagline p{font-size:.95rem;color:var(--text2);line-height:1.7;max-width:360px}
+.auth-features{display:flex;flex-direction:column;gap:12px}
+.auth-feat{display:flex;align-items:center;gap:12px;font-size:.9rem;color:var(--text2)}
+.feat-icon{width:28px;height:28px;background:var(--blue-bg);border:1px solid rgba(79,142,247,.2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--accent);flex-shrink:0}
+.auth-steps{display:flex;flex-direction:column;gap:16px}
+.auth-step{display:flex;align-items:center;gap:14px;font-size:.9rem;color:var(--text2)}
+.step-num{width:28px;height:28px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;flex-shrink:0}
+.auth-card{width:100%;max-width:400px;display:flex;flex-direction:column;gap:20px}
+.auth-card-header{display:flex;flex-direction:column;gap:6px}
+.auth-card-header h2{font-size:1.6rem;font-weight:800;color:var(--text);letter-spacing:-.02em}
+.auth-subtitle{font-size:.88rem;color:var(--text2)}
+.auth-mobile-brand{display:none;align-items:center;gap:8px;font-size:1rem;color:var(--text);margin-bottom:12px}
+.auth-mobile-brand strong{color:var(--accent)}
+.auth-mobile-brand .auth-logo-icon{font-size:1.3rem}
+
+/* =====================================================
+   AUTH — FORM COMPONENTS
+   ===================================================== */
+.auth-alert{padding:12px 16px;border-radius:var(--radius-sm);font-size:.85rem;font-weight:500;line-height:1.4;animation:fadeIn .2s ease}
+.auth-alert-error{background:var(--red-bg);color:var(--red);border:1px solid rgba(242,92,92,.3)}
+.auth-alert-success{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,208,122,.3)}
+.auth-alert-info{background:var(--blue-bg);color:var(--accent);border:1px solid rgba(79,142,247,.3)}
+.auth-form{display:flex;flex-direction:column;gap:16px}
+.auth-field{display:flex;flex-direction:column;gap:6px}
+.auth-field label{font-size:.82rem;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:8px}
+.field-hint{font-weight:400;color:var(--text3)}
+.auth-input-wrap{display:flex;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);transition:border-color .2s,box-shadow .2s;overflow:hidden}
+.auth-input-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.1)}
+.auth-input-icon{padding:0 14px;font-size:.85rem;color:var(--text3);flex-shrink:0;user-select:none}
+.auth-input-wrap input{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-family:inherit;font-size:.88rem;padding:12px 0}
+.auth-input-wrap input::placeholder{color:var(--text3)}
+.toggle-senha{background:none;border:none;padding:0 14px;cursor:pointer;font-size:.9rem;line-height:1;color:var(--text3);transition:color .2s}
+.toggle-senha:hover{color:var(--text2)}
+.field-error{font-size:.75rem;color:var(--red);min-height:16px;display:block}
+.senha-strength{display:flex;align-items:center;gap:10px;margin-top:4px}
+.strength-bar{flex:1;height:4px;background:var(--bg3);border-radius:100px;overflow:hidden}
+.strength-fill{height:100%;border-radius:100px;transition:width .3s,background .3s}
+.strength-fill.weak{background:var(--red)}.strength-fill.medium{background:var(--yellow)}.strength-fill.good{background:var(--accent)}.strength-fill.strong{background:var(--green)}
+.strength-label{font-size:.72rem;font-weight:600;white-space:nowrap}
+.strength-label.weak{color:var(--red)}.strength-label.medium{color:var(--yellow)}.strength-label.good{color:var(--accent)}.strength-label.strong{color:var(--green)}
+.auth-terms{display:flex;align-items:flex-start;gap:10px;font-size:.83rem;color:var(--text2);line-height:1.5}
+.auth-terms input[type="checkbox"]{width:16px;height:16px;margin-top:2px;accent-color:var(--accent);flex-shrink:0;cursor:pointer}
+.btn-auth{width:100%;padding:13px 20px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:.92rem;font-weight:700;cursor:pointer;transition:background .2s,transform .15s,box-shadow .2s;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:.01em;text-decoration:none}
+.btn-auth:hover:not(:disabled){background:var(--accent2);transform:translateY(-1px);box-shadow:0 8px 24px rgba(79,142,247,.25)}
+.btn-auth:disabled{opacity:.6;cursor:not-allowed}
+.btn-auth-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.btn-auth-outline:hover:not(:disabled){border-color:var(--text2);color:var(--text);background:var(--bg3);box-shadow:none}
+.btn-auth-admin{background:#7c3aed}.btn-auth-admin:hover:not(:disabled){background:#6d28d9}
+.btn-spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.auth-divider{display:flex;align-items:center;gap:12px;color:var(--text3);font-size:.78rem}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.auth-switch{font-size:.85rem;color:var(--text2);text-align:center}
+.auth-link{color:var(--accent);text-decoration:none;font-weight:600}
+.auth-link:hover{text-decoration:underline}
+.demo-hints{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.demo-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)}
+.demo-row{display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px 8px;border-radius:6px;transition:background .15s}
+.demo-row:hover{background:var(--bg3)}
+.demo-badge{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:100px;white-space:nowrap}
+.demo-badge.ativo{background:var(--green-bg);color:var(--green)}
+.demo-badge.vencido{background:var(--red-bg);color:var(--red)}
+.demo-badge.admin{background:var(--purple-bg);color:var(--purple)}
+.demo-info{font-size:.78rem;color:var(--text2);flex:1;font-family:'Space Mono',monospace}
+.demo-use{font-size:.72rem;color:var(--accent);font-weight:600;white-space:nowrap}
+.admin-access-link{text-align:center;margin-top:4px}
+.admin-access-link a{font-size:.75rem;color:var(--text3);text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:color .2s}
+.admin-access-link a:hover{color:var(--purple)}
+
+/* =====================================================
+   BLOQUEADO
+   ===================================================== */
+.blocked-wrap{position:relative;z-index:10;display:flex;align-items:center;justify-content:center;width:100%;min-height:100vh;padding:24px;flex:1}
+.blocked-card{background:var(--bg2);border:1px solid rgba(242,92,92,.2);border-radius:20px;padding:56px 48px;width:100%;max-width:480px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.5);animation:blockedIn .4s ease}
+@keyframes blockedIn{from{opacity:0;transform:scale(.94) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.blocked-icon-wrap{position:relative;width:80px;height:80px;display:flex;align-items:center;justify-content:center}
+.blocked-icon-ring{position:absolute;inset:0;border:2px solid rgba(242,92,92,.3);border-radius:50%;animation:ringPulse 2.5s ease-in-out infinite}
+@keyframes ringPulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.2);opacity:.15}}
+.blocked-icon{font-size:2.4rem;color:var(--red);line-height:1;position:relative;z-index:1}
+.blocked-badge{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:4px 14px;border-radius:100px;background:var(--red-bg);color:var(--red);border:1px solid rgba(242,92,92,.25)}
+.blocked-title{font-size:2rem;font-weight:800;color:var(--text);letter-spacing:-.02em}
+.blocked-message{font-size:.92rem;color:var(--text2);line-height:1.7;max-width:360px}
+.blocked-user{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 16px;font-size:.83rem}
+.blocked-user-label{color:var(--text3)}.blocked-user-email{color:var(--text2);font-family:'Space Mono',monospace}
+.blocked-actions{display:flex;gap:12px;width:100%;flex-wrap:wrap}
+.blocked-actions .btn-auth{flex:1;min-width:140px}
+.btn-ghost-blocked{background:none;border:none;color:var(--text3);font-family:inherit;font-size:.85rem;cursor:pointer;padding:6px 12px;border-radius:var(--radius-sm);transition:color .2s;margin-top:-4px}
+.btn-ghost-blocked:hover{color:var(--text2)}
+.blocked-brand{display:flex;align-items:center;gap:6px;margin-top:8px;opacity:.6}
+
+/* =====================================================
+   ADMIN LOGIN
+   ===================================================== */
+.admin-login-wrap{position:relative;z-index:10;display:flex;align-items:center;justify-content:center;width:100%;min-height:100vh;padding:24px;flex:1}
+.admin-login-card{background:var(--bg2);border:1px solid rgba(167,139,250,.2);border-radius:20px;padding:48px 40px;width:100%;max-width:420px;display:flex;flex-direction:column;gap:12px;box-shadow:0 24px 80px rgba(0,0,0,.5);animation:modalIn .3s ease}
+.admin-login-icon{font-size:2.2rem;color:var(--purple);text-align:center;line-height:1;margin-bottom:4px}
+.admin-login-title{font-size:1.4rem;font-weight:800;text-align:center;color:var(--text);letter-spacing:-.02em}
+.admin-badge-sidebar{margin:8px 12px 4px;padding:6px 12px;background:var(--purple-bg);border:1px solid rgba(167,139,250,.2);border-radius:6px;font-size:.72rem;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.08em;text-align:center}
+.admin-topbar-badge{font-size:.72rem;font-weight:700;padding:4px 12px;background:var(--purple-bg);border:1px solid rgba(167,139,250,.25);border-radius:100px;color:var(--purple);white-space:nowrap}
+
+/* =====================================================
+   SIDEBAR (dashboard & admin)
+   ===================================================== */
+.sidebar{width:var(--sidebar-w);min-height:100vh;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;left:0;top:0;z-index:200;transition:transform var(--transition)}
+.sidebar-header{padding:24px 20px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;font-size:1.1rem;color:var(--text)}
+.logo-icon{font-size:1.6rem;color:var(--accent);line-height:1}
+.logo-text strong{color:var(--accent)}
+.sidebar-close{display:none;background:none;border:none;color:var(--text2);font-size:1.1rem;cursor:pointer;padding:4px 8px;border-radius:var(--radius-sm);transition:background var(--transition)}
+.sidebar-close:hover{background:var(--bg3)}
+.sidebar-nav{padding:16px 12px;display:flex;flex-direction:column;gap:4px;flex:1}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:var(--radius-sm);color:var(--text2);text-decoration:none;font-size:.9rem;font-weight:500;transition:all var(--transition);cursor:pointer}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--blue-bg);color:var(--accent);font-weight:600}
+.nav-icon{font-size:1rem;opacity:.7}
+.sidebar-user{display:flex;align-items:center;gap:10px;padding:14px 16px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin:0 0 4px}
+.sidebar-user-avatar{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--green));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:#fff;flex-shrink:0;font-family:'Space Mono',monospace}
+.sidebar-user-info{min-width:0}
+.sidebar-user-name{font-size:.85rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-user-email{font-size:.72rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-footer{padding:16px 12px 20px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.btn-export{width:100%;padding:10px 16px;background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);font-family:inherit;font-size:.85rem;cursor:pointer;transition:all var(--transition);display:flex;align-items:center;gap:8px;justify-content:center}
+.btn-export:hover{border-color:var(--accent);color:var(--accent);background:var(--blue-bg)}
+.btn-logout{width:100%;padding:10px 16px;background:transparent;border:1px solid rgba(242,92,92,.25);border-radius:var(--radius-sm);color:var(--red);font-family:inherit;font-size:.85rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;justify-content:center}
+.btn-logout:hover{background:var(--red-bg);border-color:var(--red)}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:190;backdrop-filter:blur(2px)}
+.overlay.show{display:block}
+
+/* =====================================================
+   MAIN / TOPBAR
+   ===================================================== */
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;overflow-y:auto;max-height:100vh}
+.topbar{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;gap:16px}
+.menu-toggle{display:none;background:none;border:none;color:var(--text2);font-size:1.3rem;cursor:pointer;padding:6px;border-radius:var(--radius-sm);line-height:1;transition:color var(--transition)}
+.menu-toggle:hover{color:var(--text)}
+.topbar-title{font-size:1rem;font-weight:700;color:var(--text);flex:1;letter-spacing:.01em}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.month-nav{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px}
+.month-btn{background:none;border:none;color:var(--text2);font-size:1.2rem;cursor:pointer;line-height:1;padding:2px 6px;border-radius:4px;transition:color var(--transition)}
+.month-btn:hover{color:var(--accent)}
+.month-label{font-family:'Space Mono',monospace;font-size:.8rem;color:var(--text);white-space:nowrap;min-width:110px;text-align:center;font-weight:700;letter-spacing:.05em}
+.topbar-avatar{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--green));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#fff;cursor:pointer;flex-shrink:0;font-family:'Space Mono',monospace;transition:transform .2s}
+.topbar-avatar:hover{transform:scale(1.1)}
+
+/* =====================================================
+   PAGES (dashboard sections)
+   ===================================================== */
+.page{display:none;padding:24px;animation:fadeIn .25s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes modalIn{from{opacity:0;transform:translateY(-20px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* =====================================================
+   DASHBOARD COMPONENTS
+   ===================================================== */
+.income-bar{display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 20px;margin-bottom:20px}
+.income-bar label{font-size:.85rem;color:var(--text2);font-weight:600;white-space:nowrap}
+.income-input-wrap{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px}
+.income-input-wrap .currency{color:var(--green);font-weight:700;font-size:.9rem}
+.income-input-wrap input{background:transparent;border:none;outline:none;color:var(--text);font-family:'Space Mono',monospace;font-size:.95rem;width:140px}
+.cards-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius) var(--radius) 0 0}
+.card-total::before{background:var(--accent)}.card-paid::before{background:var(--green)}.card-pending::before{background:var(--yellow)}.card-late::before{background:var(--red)}
+.card-label{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:10px}
+.card-value{font-family:'Space Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--text);margin-bottom:6px}
+.card-total .card-value{color:var(--accent)}.card-paid .card-value{color:var(--green)}.card-pending .card-value{color:var(--yellow)}.card-late .card-value{color:var(--red)}
+.card-sub{font-size:.78rem;color:var(--text3)}
+.balance-bar{display:flex;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 24px;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.balance-item{display:flex;flex-direction:column;gap:4px;flex:1;min-width:120px}
+.balance-label{font-size:.75rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.balance-amount{font-family:'Space Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--text)}
+.income-color{color:var(--green)!important}.expense-color{color:var(--red)!important}
+.balance-final-positive{color:var(--green)!important}.balance-final-negative{color:var(--red)!important}
+.balance-sep{font-size:1.4rem;color:var(--text3);padding:0 8px;align-self:center;margin-bottom:4px}
+.progress-section{margin-bottom:28px}
+.progress-label{display:flex;justify-content:space-between;font-size:.8rem;color:var(--text2);font-weight:600;margin-bottom:8px}
+.progress-bar-track{height:8px;background:var(--bg3);border-radius:100px;overflow:hidden;border:1px solid var(--border)}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:100px;transition:width .5s ease;width:0%}
+.section-title{font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:16px;letter-spacing:.01em}
+.filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.filter-input,.filter-select{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:.85rem;padding:9px 13px;outline:none;transition:border-color var(--transition)}
+.filter-input{flex:1;min-width:180px}.filter-input:focus,.filter-select:focus{border-color:var(--accent)}
+.filter-select{cursor:pointer}.filter-select option{background:var(--bg2)}
+.btn-clear-filters{background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);font-family:inherit;font-size:.82rem;padding:9px 14px;cursor:pointer;white-space:nowrap;transition:all var(--transition)}
+.btn-clear-filters:hover{border-color:var(--red);color:var(--red)}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+
+/* =====================================================
+   ACCOUNT CARDS
+   ===================================================== */
+.accounts-list{display:flex;flex-direction:column;gap:10px}
+.account-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:16px;transition:border-color var(--transition),transform .15s;position:relative;overflow:hidden}
+.account-card:hover{border-color:#2e3650;transform:translateX(2px)}
+.account-card.status-pago{border-left:3px solid var(--green)}.account-card.status-pendente{border-left:3px solid var(--yellow)}.account-card.status-atrasado{border-left:3px solid var(--red)}
+.acc-check{width:22px;height:22px;border:2px solid var(--border);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all var(--transition);background:var(--bg3);font-size:.75rem}
+.acc-check:hover{border-color:var(--green)}.acc-check.checked{background:var(--green);border-color:var(--green);color:#fff}
+.acc-info{flex:1;min-width:0}
+.acc-name{font-weight:600;font-size:.9rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+.acc-name.paid-name{text-decoration:line-through;color:var(--text3)}
+.acc-meta{display:flex;gap:10px;flex-wrap:wrap}
+.acc-tag{font-size:.72rem;padding:2px 8px;border-radius:100px;font-weight:600;white-space:nowrap}
+.tag-category,.tag-type,.tag-due{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.tag-paid-date{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,208,122,.2)}
+.tag-installment{background:var(--blue-bg);color:var(--accent);border:1px solid rgba(79,142,247,.2)}
+.acc-obs{font-size:.75rem;color:var(--text3);margin-top:3px;font-style:italic}
+.acc-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0}
+.acc-value{font-family:'Space Mono',monospace;font-size:1rem;font-weight:700;color:var(--text)}
+.status-badge{font-size:.7rem;padding:3px 10px;border-radius:100px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.badge-pago{background:var(--green-bg);color:var(--green)}.badge-pendente{background:var(--yellow-bg);color:var(--yellow)}.badge-atrasado{background:var(--red-bg);color:var(--red)}
+.acc-actions{display:flex;gap:6px}
+.btn-icon{width:30px;height:30px;border:1px solid var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.8rem;transition:all var(--transition)}
+.btn-icon:hover{border-color:var(--accent);color:var(--accent);background:var(--blue-bg)}
+.btn-icon.delete:hover{border-color:var(--red);color:var(--red);background:var(--red-bg)}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-icon{font-size:2.5rem;margin-bottom:12px}.empty-text{font-size:.9rem}
+
+/* =====================================================
+   INSTALLMENTS
+   ===================================================== */
+.installments-list{display:flex;flex-direction:column;gap:20px}
+.installment-group{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.installment-group-header{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--transition);flex-wrap:wrap;gap:12px}
+.installment-group-header:hover{background:var(--bg3)}
+.ig-name{font-weight:700;font-size:.95rem}
+.ig-meta{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.ig-info{font-size:.8rem;color:var(--text2)}.ig-info span{color:var(--text);font-weight:600}
+.ig-progress-wrap{display:flex;align-items:center;gap:8px}
+.ig-progress-mini{height:4px;width:80px;background:var(--bg);border-radius:100px;overflow:hidden}
+.ig-progress-mini-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:100px}
+.ig-toggle{font-size:.8rem;color:var(--text2);transition:transform .2s}.ig-toggle.open{transform:rotate(180deg)}
+.installment-group-body{display:none;padding:12px 16px;gap:8px;flex-direction:column}
+.installment-group-body.open{display:flex}
+.installment-item{display:flex;align-items:center;gap:14px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--bg3);transition:background var(--transition)}
+.installment-item:hover{background:#1e2535}
+.inst-num{font-family:'Space Mono',monospace;font-size:.75rem;color:var(--text3);min-width:28px}
+.inst-month{font-size:.83rem;color:var(--text2);flex:1}
+.inst-value{font-family:'Space Mono',monospace;font-size:.88rem;font-weight:700;color:var(--text)}
+
+/* =====================================================
+   CATEGORIES
+   ===================================================== */
+.categories-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.category-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;transition:transform .2s}
+.category-card:hover{transform:translateY(-2px)}
+.cat-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.cat-name{font-weight:700;font-size:.9rem}
+.cat-count{font-size:.75rem;color:var(--text2);background:var(--bg3);padding:2px 8px;border-radius:100px}
+.cat-total{font-family:'Space Mono',monospace;font-size:1.2rem;font-weight:700;color:var(--accent);margin-bottom:10px}
+.cat-bar-track{height:5px;background:var(--bg3);border-radius:100px;overflow:hidden}
+.cat-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:100px}
+.cat-paid-ratio{font-size:.75rem;color:var(--text3);margin-top:6px}
+
+/* =====================================================
+   BUTTONS (app)
+   ===================================================== */
+.btn-primary{background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:10px 20px;font-family:inherit;font-size:.88rem;font-weight:600;cursor:pointer;transition:background var(--transition),transform .15s;white-space:nowrap}
+.btn-primary:hover{background:var(--accent2);transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 20px;font-family:inherit;font-size:.88rem;font-weight:500;cursor:pointer;transition:all var(--transition)}
+.btn-ghost:hover{border-color:var(--text2);color:var(--text)}
+
+/* =====================================================
+   MODAL
+   ===================================================== */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px}
+.modal-backdrop.show{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;animation:modalIn .25s ease;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border)}
+.modal-header h3{font-size:1rem;font-weight:700}
+.modal-close{background:none;border:none;color:var(--text2);font-size:1rem;cursor:pointer;padding:4px 8px;border-radius:4px;transition:color var(--transition)}
+.modal-close:hover{color:var(--red)}
+.modal-body{padding:24px;overflow-y:auto;flex:1}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}.form-group.full{grid-column:1/-1}
+.form-group label{font-size:.8rem;font-weight:600;color:var(--text2)}
+.form-group input,.form-group select,.form-group textarea{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:.88rem;padding:10px 13px;outline:none;transition:border-color var(--transition);resize:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
+.form-group select{cursor:pointer}.form-group select option{background:var(--bg2)}
+input[type="date"]::-webkit-calendar-picker-indicator,input[type="month"]::-webkit-calendar-picker-indicator{filter:invert(.5);cursor:pointer}
+
+/* =====================================================
+   TOAST
+   ===================================================== */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 20px;font-size:.88rem;font-weight:500;color:var(--text);z-index:1000;opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s;pointer-events:none;box-shadow:var(--shadow);max-width:320px}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.success{border-color:var(--green);color:var(--green)}.toast.error{border-color:var(--red);color:var(--red)}.toast.info{border-color:var(--accent);color:var(--accent)}
+
+/* =====================================================
+   ADMIN PANEL
+   ===================================================== */
+.admin-stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.admin-stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;border-top:3px solid transparent;transition:transform .2s}
+.admin-stat-card:hover{transform:translateY(-2px)}
+.admin-stat-card.a-total{border-top-color:var(--purple)}.admin-stat-card.a-ativo{border-top-color:var(--green)}.admin-stat-card.a-pendente{border-top-color:var(--yellow)}.admin-stat-card.a-vencido{border-top-color:var(--red)}.admin-stat-card.a-bloqueado{border-top-color:var(--text3)}
+.asc-label{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);margin-bottom:8px}
+.asc-value{font-family:'Space Mono',monospace;font-size:1.8rem;font-weight:700;line-height:1}
+.admin-stat-card.a-total .asc-value{color:var(--purple)}.admin-stat-card.a-ativo .asc-value{color:var(--green)}.admin-stat-card.a-pendente .asc-value{color:var(--yellow)}.admin-stat-card.a-vencido .asc-value{color:var(--red)}
+.admin-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.admin-table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;overflow-x:auto}
+.admin-table{width:100%;border-collapse:collapse;min-width:800px}
+.admin-table thead{background:var(--bg3);border-bottom:1px solid var(--border)}
+.admin-table th{padding:12px 16px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);text-align:left;white-space:nowrap}
+.admin-table td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:.85rem;color:var(--text)}
+.admin-table tbody tr:last-child td{border-bottom:none}
+.admin-table tbody tr:hover{background:rgba(255,255,255,.02)}
+.cell-mono{font-family:'Space Mono',monospace;font-size:.75rem;color:var(--text2)}
+.user-cell{display:flex;align-items:center;gap:10px}
+.user-avatar-sm{width:32px;height:32px;background:linear-gradient(135deg,#7c3aed,var(--accent));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;color:#fff;flex-shrink:0;font-family:'Space Mono',monospace}
+.user-name-cell{font-weight:600;font-size:.88rem}.user-email-cell{font-size:.75rem;color:var(--text3);font-family:'Space Mono',monospace}.user-obs-cell{font-size:.72rem;color:var(--text3);font-style:italic;margin-top:2px}
+.plano-badge{font-size:.7rem;font-weight:700;padding:2px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.05em}
+.plano-badge.pro{background:var(--purple-bg);color:var(--purple);border:1px solid rgba(167,139,250,.25)}.plano-badge.basico{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.action-btns{display:flex;align-items:center;gap:5px;justify-content:center;flex-wrap:wrap}
+.action-btn{padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:transparent;font-size:.72rem;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s;color:var(--text2)}
+.action-btn.ativar{border-color:rgba(34,208,122,.3);color:var(--green)}.action-btn.ativar:hover{background:var(--green-bg)}
+.action-btn.vencer:hover,.action-btn.bloquear:hover{background:var(--red-bg);color:var(--red);border-color:rgba(242,92,92,.3)}
+.action-btn.pendente-btn:hover{background:var(--yellow-bg);color:var(--yellow);border-color:rgba(245,200,66,.3)}
+.action-btn.editar:hover{background:var(--blue-bg);color:var(--accent);border-color:rgba(79,142,247,.3)}
+.action-btn.excluir:hover{background:var(--red-bg);color:var(--red);border-color:rgba(242,92,92,.3)}
+.btn-delete-confirm{background:var(--red);color:#fff;border:none;border-radius:var(--radius-sm);padding:10px 20px;font-family:inherit;font-size:.88rem;font-weight:700;cursor:pointer;transition:background .2s}
+.btn-delete-confirm:hover{background:#d94444}
+.btn-admin-primary{background:#7c3aed}.btn-admin-primary:hover{background:#6d28d9}
+.edit-user-preview{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:12px}
+.admin-overview-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:4px}
+.overview-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.overview-title{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);margin-bottom:16px}
+.ov-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ov-bar-label{font-size:.8rem;color:var(--text2);min-width:72px;flex-shrink:0}
+.ov-bar-track{flex:1;height:6px;background:var(--bg3);border-radius:100px;overflow:hidden}
+.ov-bar-fill{height:100%;border-radius:100px;transition:width .5s ease}
+.bar-ativo{background:var(--green)}.bar-pendente{background:var(--yellow)}.bar-vencido{background:var(--red)}.bar-bloqueado{background:var(--text3)}
+.ov-bar-val{font-family:'Space Mono',monospace;font-size:.75rem;color:var(--text2);min-width:56px;text-align:right}
+.ov-bar-val small{color:var(--text3);font-size:.68rem}
+.ov-activity-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.ov-activity-row:last-child{border-bottom:none}
+
+/* =====================================================
+   RESPONSIVE
+   ===================================================== */
+@media(max-width:1100px){.admin-stats-grid{grid-template-columns:repeat(3,1fr)}.admin-overview-grid{grid-template-columns:1fr}}
+@media(max-width:1024px){.cards-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){.auth-panel-left{display:none}.auth-panel-right{width:100%;padding:32px 24px}.auth-mobile-brand{display:flex}.auth-card{max-width:420px}}
+@media(max-width:768px){
+  :root{--sidebar-w:0px}
+  .sidebar{width:260px;transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-close{display:block}
+  .main{margin-left:0}
+  .menu-toggle{display:block}
+  .topbar{padding:0 16px}
+  .page{padding:16px}
+  .cards-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .card-value{font-size:1.1rem}
+  .balance-bar{flex-direction:column;align-items:flex-start;gap:12px;padding:16px}
+  .balance-sep{display:none}
+  .form-grid{grid-template-columns:1fr}.form-group.full{grid-column:1}
+  .month-label{min-width:90px;font-size:.72rem}
+  .filter-input{min-width:120px}
+  .admin-stats-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:480px){
+  .cards-grid{grid-template-columns:1fr 1fr}
+  .account-card{padding:12px 14px;gap:10px}
+  .acc-value{font-size:.88rem}
+  .modal{border-radius:12px}
+  .blocked-card{padding:40px 24px}
+  .blocked-title{font-size:1.6rem}
+  .admin-login-card{padding:32px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- ================================================
+     SCREEN: LOGIN
+     ================================================ -->
+<div id="screen-login" class="screen screen-auth">
+  <div class="auth-bg"><div class="auth-bg-grid"></div><div class="auth-bg-glow"></div></div>
+  <div class="auth-wrap">
+    <div class="auth-panel-left">
+      <div class="auth-brand"><span class="auth-logo-icon">◈</span><span class="auth-logo-text">Finance<strong>Flow</strong></span></div>
+      <div class="auth-tagline">
+        <h1>Controle total<br/>das suas finanças.</h1>
+        <p>Cadastre contas, acompanhe parcelas, visualize seu saldo em tempo real e nunca mais perca um vencimento.</p>
+      </div>
+      <div class="auth-features">
+        <div class="auth-feat"><span class="feat-icon">▦</span> Dashboard mensal completo</div>
+        <div class="auth-feat"><span class="feat-icon">◫</span> Controle de parcelas</div>
+        <div class="auth-feat"><span class="feat-icon">◑</span> Resumo por categoria</div>
+        <div class="auth-feat"><span class="feat-icon">↓</span> Exportação para CSV/Excel</div>
+      </div>
+    </div>
+    <div class="auth-panel-right">
+      <div class="auth-card">
+        <div class="auth-card-header">
+          <div class="auth-mobile-brand"><span class="auth-logo-icon">◈</span><span class="auth-logo-text">Finance<strong>Flow</strong></span></div>
+          <h2>Bem-vindo de volta</h2>
+          <p class="auth-subtitle">Entre com sua conta para continuar</p>
+        </div>
+        <div class="auth-alert" id="loginAlert" style="display:none"></div>
+        <form class="auth-form" id="loginForm" novalidate>
+          <div class="auth-field">
+            <label>E-mail</label>
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon">✉</span>
+              <input type="email" id="loginEmail" placeholder="seu@email.com" autocomplete="email"/>
+            </div>
+            <span class="field-error" id="errLoginEmail"></span>
+          </div>
+          <div class="auth-field">
+            <label>Senha</label>
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon">⬡</span>
+              <input type="password" id="loginSenha" placeholder="••••••••" autocomplete="current-password"/>
+              <button type="button" class="toggle-senha" id="toggleLoginSenha"><span id="eyeLogin">👁</span></button>
+            </div>
+            <span class="field-error" id="errLoginSenha"></span>
+          </div>
+          <button type="submit" class="btn-auth" id="btnLoginSubmit">
+            <span id="btnLoginText">Entrar no sistema</span>
+            <span class="btn-spinner" id="spinnerLogin" style="display:none"></span>
+          </button>
+        </form>
+        <div class="auth-divider"><span>ou</span></div>
+        <p class="auth-switch">Não tem conta? <a href="#" class="auth-link" id="linkToCadastro">Cadastre-se</a></p>
+        <div class="demo-hints">
+          <div class="demo-title">Contas de demonstração</div>
+          <div class="demo-row" id="demoAtivo"><span class="demo-badge ativo">● Ativo</span><span class="demo-info">demo@financeflow.com / Demo@123</span><span class="demo-use">usar →</span></div>
+          <div class="demo-row" id="demoVencido"><span class="demo-badge vencido">● Vencido</span><span class="demo-info">vencido@financeflow.com / Demo@123</span><span class="demo-use">usar →</span></div>
+          <div class="demo-row" id="demoAdmin"><span class="demo-badge admin">⬡ Admin</span><span class="demo-info">admin@financeflow.com / Admin@FF2025</span><span class="demo-use">usar →</span></div>
+        </div>
+        <div class="admin-access-link"><a href="#" id="linkToAdminLogin">⬡ Acesso administrativo</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================
+     SCREEN: CADASTRO
+     ================================================ -->
+<div id="screen-cadastro" class="screen screen-auth">
+  <div class="auth-bg"><div class="auth-bg-grid"></div><div class="auth-bg-glow auth-bg-glow-alt"></div></div>
+  <div class="auth-wrap">
+    <div class="auth-panel-left">
+      <div class="auth-brand"><span class="auth-logo-icon">◈</span><span class="auth-logo-text">Finance<strong>Flow</strong></span></div>
+      <div class="auth-tagline">
+        <h1>Comece a controlar<br/>suas finanças hoje.</h1>
+        <p>Crie sua conta em segundos e acesse o gerenciador financeiro mais organizado que você já usou.</p>
+      </div>
+      <div class="auth-steps">
+        <div class="auth-step"><span class="step-num">1</span><span>Preencha seus dados básicos</span></div>
+        <div class="auth-step"><span class="step-num">2</span><span>Aguarde a liberação do acesso</span></div>
+        <div class="auth-step"><span class="step-num">3</span><span>Acesse o dashboard completo</span></div>
+      </div>
+    </div>
+    <div class="auth-panel-right">
+      <div class="auth-card">
+        <div class="auth-card-header">
+          <div class="auth-mobile-brand"><span class="auth-logo-icon">◈</span><span class="auth-logo-text">Finance<strong>Flow</strong></span></div>
+          <h2>Criar conta</h2>
+          <p class="auth-subtitle">Preencha os campos para começar</p>
+        </div>
+        <div class="auth-alert" id="cadAlert" style="display:none"></div>
+        <form class="auth-form" id="cadForm" novalidate>
+          <div class="auth-field">
+            <label>Nome completo</label>
+            <div class="auth-input-wrap"><span class="auth-input-icon">◎</span><input type="text" id="cadNome" placeholder="Seu nome completo" autocomplete="name"/></div>
+            <span class="field-error" id="errCadNome"></span>
+          </div>
+          <div class="auth-field">
+            <label>E-mail</label>
+            <div class="auth-input-wrap"><span class="auth-input-icon">✉</span><input type="email" id="cadEmail" placeholder="seu@email.com" autocomplete="email"/></div>
+            <span class="field-error" id="errCadEmail"></span>
+          </div>
+          <div class="auth-field">
+            <label>Senha <span class="field-hint">(mín. 6 caracteres)</span></label>
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon">⬡</span>
+              <input type="password" id="cadSenha" placeholder="••••••••" autocomplete="new-password"/>
+              <button type="button" class="toggle-senha" id="toggleCadSenha"><span id="eyeCad">👁</span></button>
+            </div>
+            <div class="senha-strength" id="senhaStrength" style="display:none">
+              <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+              <span class="strength-label" id="strengthLabel"></span>
+            </div>
+            <span class="field-error" id="errCadSenha"></span>
+          </div>
+          <div class="auth-field">
+            <label>Confirmar senha</label>
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon">⬡</span>
+              <input type="password" id="cadConfirmar" placeholder="••••••••" autocomplete="new-password"/>
+              <button type="button" class="toggle-senha" id="toggleCadConf"><span id="eyeCadConf">👁</span></button>
+            </div>
+            <span class="field-error" id="errCadConfirmar"></span>
+          </div>
+          <div class="auth-terms">
+            <input type="checkbox" id="aceitarTermos"/>
+            <label for="aceitarTermos">Concordo com os <a href="#" class="auth-link">Termos de Uso</a></label>
+          </div>
+          <span class="field-error" id="errTermos"></span>
+          <button type="submit" class="btn-auth" id="btnCadSubmit">
+            <span id="btnCadText">Criar minha conta</span>
+            <span class="btn-spinner" id="spinnerCad" style="display:none"></span>
+          </button>
+        </form>
+        <div class="auth-divider"><span>ou</span></div>
+        <p class="auth-switch">Já tem conta? <a href="#" class="auth-link" id="linkToLogin">Fazer login</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================
+     SCREEN: BLOQUEADO
+     ================================================ -->
+<div id="screen-bloqueado" class="screen screen-auth">
+  <div class="auth-bg"><div class="auth-bg-grid"></div><div class="auth-bg-glow auth-bg-glow-red"></div></div>
+  <div class="blocked-wrap">
+    <div class="blocked-card">
+      <div class="blocked-icon-wrap"><div class="blocked-icon-ring"></div><div class="blocked-icon">⊘</div></div>
+      <div class="blocked-badge" id="blockedBadge">Assinatura Inativa</div>
+      <h1 class="blocked-title" id="blockedTitle">Acesso Negado</h1>
+      <p class="blocked-message" id="blockedMessage">Sua assinatura não está ativa. Regularize seu pagamento para continuar.</p>
+      <div class="blocked-user" id="blockedUser" style="display:none">
+        <span class="blocked-user-label">Conta:</span>
+        <span class="blocked-user-email" id="blockedUserEmail"></span>
+      </div>
+      <div class="blocked-actions">
+        <button class="btn-auth btn-auth-outline" id="btnContatoSuporte">✉ Entrar em Contato</button>
+        <button class="btn-auth" id="btnJaPaguei">✓ Já regularizei</button>
+      </div>
+      <button class="btn-ghost-blocked" id="btnBloqueadoSair">← Sair e voltar ao login</button>
+      <div class="blocked-brand"><span class="auth-logo-icon" style="font-size:1rem">◈</span><span style="color:var(--text3);font-size:.8rem">Finance<strong style="color:var(--text2)">Flow</strong></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================
+     SCREEN: ADMIN LOGIN
+     ================================================ -->
+<div id="screen-admin-login" class="screen screen-auth">
+  <div class="auth-bg"><div class="auth-bg-grid"></div><div class="auth-bg-glow auth-bg-glow-purple"></div></div>
+  <div class="admin-login-wrap">
+    <div class="admin-login-card">
+      <div class="admin-login-icon">⬡</div>
+      <div class="auth-brand" style="justify-content:center"><span class="auth-logo-icon">◈</span><span class="auth-logo-text">Finance<strong>Flow</strong></span></div>
+      <h2 class="admin-login-title">Painel Administrativo</h2>
+      <p class="auth-subtitle" style="text-align:center">Acesso restrito — somente administradores</p>
+      <div class="auth-alert" id="adminLoginAlert" style="display:none"></div>
+      <form class="auth-form" id="adminLoginForm" novalidate>
+        <div class="auth-field">
+          <label>E-mail do administrador</label>
+          <div class="auth-input-wrap"><span class="auth-input-icon">✉</span><input type="email" id="adminLoginEmail" placeholder="admin@financeflow.com"/></div>
+        </div>
+        <div class="auth-field">
+          <label>Senha</label>
+          <div class="auth-input-wrap">
+            <span class="auth-input-icon">⬡</span>
+            <input type="password" id="adminLoginSenha" placeholder="••••••••"/>
+            <button type="button" class="toggle-senha" id="toggleAdminSenha"><span id="eyeAdmin">👁</span></button>
+          </div>
+        </div>
+        <button type="submit" class="btn-auth btn-auth-admin" id="btnAdminLoginSubmit">
+          <span id="btnAdminLoginText">Entrar no painel</span>
+          <span class="btn-spinner" id="spinnerAdminLogin" style="display:none"></span>
+        </button>
+      </form>
+      <div style="text-align:center;margin-top:16px">
+        <a href="#" class="auth-link" id="linkAdminToLogin" style="font-size:.82rem;color:var(--text3)">← Voltar ao login de usuários</a>
+      </div>
+      <div class="demo-hints" style="margin-top:16px">
+        <div class="demo-title">Credencial padrão</div>
+        <div class="demo-row" id="demoAdminFill"><span class="demo-badge admin">⬡ Admin</span><span class="demo-info">admin@financeflow.com / Admin@FF2025</span><span class="demo-use">usar →</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================
+     SCREEN: DASHBOARD
+     ================================================ -->
+<div id="screen-dashboard" class="screen screen-app">
+  <aside class="sidebar" id="dashSidebar">
+    <div class="sidebar-header">
+      <div class="logo"><span class="logo-icon">◈</span><span class="logo-text">Finance<strong>Flow</strong></span></div>
+      <button class="sidebar-close" id="dashSidebarClose">✕</button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-page="dashboard"><span class="nav-icon">▦</span> Dashboard</a>
+      <a href="#" class="nav-item" data-page="accounts"><span class="nav-icon">◉</span> Contas</a>
+      <a href="#" class="nav-item" data-page="installments"><span class="nav-icon">◫</span> Parcelas</a>
+      <a href="#" class="nav-item" data-page="categories"><span class="nav-icon">◑</span> Categorias</a>
+    </nav>
+    <div class="sidebar-user" id="sidebarUser">
+      <div class="sidebar-user-avatar" id="sidebarAvatar">?</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name" id="sidebarUserName">Carregando...</div>
+        <div class="sidebar-user-email" id="sidebarUserEmail"></div>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <button class="btn-export" id="btnExportCSV"><span>↓</span> Exportar CSV</button>
+      <button class="btn-logout" id="btnDashLogout"><span>↩</span> Sair</button>
+    </div>
+  </aside>
+  <div class="overlay" id="dashOverlay"></div>
+  <main class="main">
+    <header class="topbar">
+      <button class="menu-toggle" id="dashMenuToggle">☰</button>
+      <div class="topbar-title" id="dashTopbarTitle">Dashboard</div>
+      <div class="topbar-right">
+        <div class="month-nav">
+          <button class="month-btn" id="prevMonth">‹</button>
+          <span class="month-label" id="monthLabel">—</span>
+          <button class="month-btn" id="nextMonth">›</button>
+        </div>
+        <div class="topbar-avatar" id="topbarAvatar">?</div>
+      </div>
+    </header>
+
+    <!-- Page: Dashboard -->
+    <section class="page active" id="page-dashboard">
+      <div class="income-bar">
+        <label>Receita do mês:</label>
+        <div class="income-input-wrap"><span class="currency">R$</span><input type="number" id="monthlyIncome" placeholder="0,00" min="0" step="0.01"/></div>
+      </div>
+      <div class="cards-grid">
+        <div class="card card-total"><div class="card-label">Total do Mês</div><div class="card-value" id="cardTotal">R$ 0,00</div><div class="card-sub" id="cardTotalCount">0 contas</div></div>
+        <div class="card card-paid"><div class="card-label">Pago</div><div class="card-value" id="cardPaid">R$ 0,00</div><div class="card-sub" id="cardPaidCount">0 pagas</div></div>
+        <div class="card card-pending"><div class="card-label">Pendente</div><div class="card-value" id="cardPending">R$ 0,00</div><div class="card-sub" id="cardPendingCount">0 pendentes</div></div>
+        <div class="card card-late"><div class="card-label">Atrasado</div><div class="card-value" id="cardLate">R$ 0,00</div><div class="card-sub" id="cardLateCount">0 atrasadas</div></div>
+      </div>
+      <div class="balance-bar">
+        <div class="balance-item"><span class="balance-label">Receita</span><span class="balance-amount income-color" id="balanceIncome">R$ 0,00</span></div>
+        <div class="balance-sep">−</div>
+        <div class="balance-item"><span class="balance-label">Despesas Pagas</span><span class="balance-amount expense-color" id="balanceExpense">R$ 0,00</span></div>
+        <div class="balance-sep">=</div>
+        <div class="balance-item"><span class="balance-label">Saldo Final</span><span class="balance-amount" id="balanceFinal">R$ 0,00</span></div>
+      </div>
+      <div class="progress-section">
+        <div class="progress-label"><span>Progresso de pagamento</span><span id="progressPct">0%</span></div>
+        <div class="progress-bar-track"><div class="progress-bar-fill" id="progressBar"></div></div>
+      </div>
+      <h2 class="section-title">Contas do Mês</h2>
+      <div class="filter-bar">
+        <input type="text" id="dashSearch" class="filter-input" placeholder="🔍 Buscar conta..."/>
+        <select id="dashFilterStatus" class="filter-select"><option value="">Todos os status</option><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="atrasado">Atrasado</option></select>
+        <select id="dashFilterCategory" class="filter-select"><option value="">Todas as categorias</option></select>
+        <button class="btn-clear-filters" id="dashClearFilters">✕ Limpar</button>
+      </div>
+      <div class="accounts-list" id="dashAccountsList"></div>
+    </section>
+
+    <!-- Page: Contas -->
+    <section class="page" id="page-accounts">
+      <div class="page-header"><h2 class="section-title" style="margin:0">Gerenciar Contas</h2><button class="btn-primary" id="btnNewAccount">+ Nova Conta</button></div>
+      <div class="filter-bar">
+        <input type="text" id="accSearch" class="filter-input" placeholder="🔍 Buscar conta..."/>
+        <select id="accFilterStatus" class="filter-select"><option value="">Todos os status</option><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="atrasado">Atrasado</option></select>
+        <select id="accFilterCategory" class="filter-select"><option value="">Todas as categorias</option></select>
+        <select id="accFilterType" class="filter-select"><option value="">Tipo de pagamento</option></select>
+        <button class="btn-clear-filters" id="accClearFilters">✕ Limpar</button>
+      </div>
+      <div class="accounts-list" id="accAccountsList"></div>
+    </section>
+
+    <!-- Page: Parcelas -->
+    <section class="page" id="page-installments">
+      <div class="page-header"><h2 class="section-title" style="margin:0">Compras Parceladas</h2><button class="btn-primary" id="btnNewInstallment">+ Nova Parcela</button></div>
+      <div class="installments-list" id="installmentsList"></div>
+    </section>
+
+    <!-- Page: Categorias -->
+    <section class="page" id="page-categories">
+      <h2 class="section-title">Resumo por Categoria</h2>
+      <div class="categories-grid" id="categoriesGrid"></div>
+    </section>
+  </main>
+
+  <!-- Modal: Conta -->
+  <div class="modal-backdrop" id="modalAccount">
+    <div class="modal">
+      <div class="modal-header"><h3 id="modalAccountTitle">Nova Conta</h3><button class="modal-close" id="modalAccountClose">✕</button></div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group full"><label>Nome da Conta *</label><input type="text" id="accName" placeholder="Ex.: Aluguel, Netflix..."/></div>
+          <div class="form-group"><label>Categoria *</label><select id="accCategory"></select></div>
+          <div class="form-group"><label>Valor (R$) *</label><input type="number" id="accValue" placeholder="0,00" min="0" step="0.01"/></div>
+          <div class="form-group"><label>Data de Vencimento *</label><input type="date" id="accDueDate"/></div>
+          <div class="form-group"><label>Tipo de Pagamento *</label><select id="accPaymentType"></select></div>
+          <div class="form-group"><label>Status</label><select id="accStatus"><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="atrasado">Atrasado</option></select></div>
+          <div class="form-group full"><label>Observação</label><textarea id="accObservation" rows="2" placeholder="Notas adicionais..."></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer"><button class="btn-ghost" id="modalAccountCancel">Cancelar</button><button class="btn-primary" id="modalAccountSave">Salvar Conta</button></div>
+    </div>
+  </div>
+
+  <!-- Modal: Parcela -->
+  <div class="modal-backdrop" id="modalInstallment">
+    <div class="modal">
+      <div class="modal-header"><h3>Nova Compra Parcelada</h3><button class="modal-close" id="modalInstallmentClose">✕</button></div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group full"><label>Nome da Compra *</label><input type="text" id="instName" placeholder="Ex.: TV Samsung, Notebook..."/></div>
+          <div class="form-group"><label>Valor Total (R$) *</label><input type="number" id="instTotal" placeholder="0,00" min="0" step="0.01"/></div>
+          <div class="form-group"><label>Nº de Parcelas *</label><input type="number" id="instCount" placeholder="Ex.: 12" min="1" max="120"/></div>
+          <div class="form-group"><label>Valor da Parcela</label><input type="number" id="instValue" placeholder="Calculado auto" min="0" step="0.01"/></div>
+          <div class="form-group"><label>Mês Inicial *</label><input type="month" id="instStartMonth"/></div>
+          <div class="form-group"><label>Categoria *</label><select id="instCategory"></select></div>
+          <div class="form-group"><label>Tipo de Pagamento</label><select id="instPaymentType"></select></div>
+        </div>
+      </div>
+      <div class="modal-footer"><button class="btn-ghost" id="modalInstallmentCancel">Cancelar</button><button class="btn-primary" id="modalInstallmentSave">Criar Parcelas</button></div>
+    </div>
+  </div>
+</div><!-- end screen-dashboard -->
+
+<!-- ================================================
+     SCREEN: ADMIN
+     ================================================ -->
+<div id="screen-admin" class="screen screen-app">
+  <aside class="sidebar" id="adminSidebar">
+    <div class="sidebar-header">
+      <div class="logo"><span class="logo-icon" style="color:var(--purple)">◈</span><span class="logo-text">Finance<strong style="color:var(--purple)">Flow</strong></span></div>
+      <button class="sidebar-close" id="adminSidebarClose">✕</button>
+    </div>
+    <div class="admin-badge-sidebar">⬡ Painel Admin</div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-section="usuarios"><span class="nav-icon">◉</span> Usuários</a>
+      <a href="#" class="nav-item" data-section="estatisticas"><span class="nav-icon">▦</span> Estatísticas</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn-export" id="btnVerLogin"><span>↗</span> Ver tela de login</button>
+      <button class="btn-logout" id="btnAdminLogout"><span>↩</span> Sair do painel</button>
+    </div>
+  </aside>
+  <div class="overlay" id="adminOverlay"></div>
+  <main class="main">
+    <header class="topbar">
+      <button class="menu-toggle" id="adminMenuToggle">☰</button>
+      <div class="topbar-title" id="adminTopbarTitle">Gerenciar Usuários</div>
+      <div class="topbar-right"><div class="admin-topbar-badge">⬡ Admin</div></div>
+    </header>
+
+    <!-- Section: Usuários -->
+    <section class="page active" id="section-usuarios" style="padding:24px">
+      <div class="admin-stats-grid" id="adminStatsGrid"></div>
+      <div class="admin-toolbar">
+        <input type="text" id="adminSearchUser" class="filter-input" placeholder="🔍 Buscar por nome ou e-mail..." style="flex:1;min-width:200px"/>
+        <select id="adminFilterStatus" class="filter-select"><option value="">Todos os status</option><option value="ativo">Ativo</option><option value="pendente">Pendente</option><option value="vencido">Vencido</option><option value="bloqueado">Bloqueado</option></select>
+        <select id="adminFilterPlano" class="filter-select"><option value="">Todos os planos</option><option value="basico">Básico</option><option value="pro">Pro</option></select>
+        <button class="btn-clear-filters" id="adminClearFilters">✕ Limpar</button>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table"><thead><tr><th>Usuário</th><th>Plano</th><th>Status</th><th>Cadastro</th><th>Expiração</th><th>Último acesso</th><th style="text-align:center">Ações</th></tr></thead><tbody id="adminUsersTableBody"></tbody></table>
+        <div id="adminUsersEmpty" class="empty-state" style="display:none;padding:40px"><div class="empty-icon">◉</div><div class="empty-text">Nenhum usuário encontrado.</div></div>
+      </div>
+    </section>
+
+    <!-- Section: Estatísticas -->
+    <section class="page" id="section-estatisticas" style="padding:24px">
+      <h2 class="section-title">Visão Geral</h2>
+      <div class="admin-stats-grid" id="adminStatsGrid2"></div>
+      <div class="admin-overview-grid">
+        <div class="overview-card"><div class="overview-title">Distribuição por Status</div><div id="adminStatusBars"></div></div>
+        <div class="overview-card"><div class="overview-title">Distribuição por Plano</div><div id="adminPlanoBars"></div></div>
+        <div class="overview-card"><div class="overview-title">Atividade Recente</div><div id="adminRecentActivity"></div></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal: Editar Usuário -->
+  <div class="modal-backdrop" id="adminModalEdit">
+    <div class="modal" style="max-width:500px">
+      <div class="modal-header"><h3>Editar Usuário</h3><button class="modal-close" id="adminModalEditClose">✕</button></div>
+      <div class="modal-body">
+        <div id="editUserPreview"></div>
+        <div class="form-grid" style="margin-top:4px">
+          <div class="form-group"><label>Status de Pagamento</label><select id="editStatus"><option value="ativo">✓ Ativo</option><option value="pendente">◌ Pendente</option><option value="vencido">⊘ Vencido</option><option value="bloqueado">✕ Bloqueado</option></select></div>
+          <div class="form-group"><label>Plano</label><select id="editPlano"><option value="basico">Básico</option><option value="pro">Pro</option></select></div>
+          <div class="form-group full"><label>Data de Expiração</label><input type="date" id="editExpiracao"/></div>
+          <div class="form-group full"><label>Observação interna</label><textarea id="editObs" rows="2" placeholder="Notas sobre este usuário..."></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer"><button class="btn-ghost" id="adminModalEditCancel">Cancelar</button><button class="btn-primary btn-admin-primary" id="adminModalEditSave">Salvar Alterações</button></div>
+    </div>
+  </div>
+
+  <!-- Modal: Excluir Usuário -->
+  <div class="modal-backdrop" id="adminModalDelete">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-header"><h3>Excluir Usuário</h3><button class="modal-close" id="adminModalDeleteClose">✕</button></div>
+      <div class="modal-body">
+        <p style="color:var(--text2);font-size:.9rem;line-height:1.6">Excluir o usuário <strong id="deleteUserName" style="color:var(--text)"></strong>?<br/><br/><span style="color:var(--red);font-size:.82rem">⚠ Todos os dados financeiros serão apagados. Ação irreversível.</span></p>
+      </div>
+      <div class="modal-footer"><button class="btn-ghost" id="adminModalDeleteCancel">Cancelar</button><button class="btn-delete-confirm" id="adminModalDeleteConfirm">Excluir permanentemente</button></div>
+    </div>
+  </div>
+</div><!-- end screen-admin -->
+
+<!-- TOAST GLOBAL -->
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* =====================================================
+   CONSTANTES
+   ===================================================== */
+const STORAGE_KEYS = { USERS:'ff_users', SESSION:'ff_session', ADMIN_SESSION:'ff_admin_session' };
+const PAYMENT_STATUS = { ATIVO:'ativo', VENCIDO:'vencido', BLOQUEADO:'bloqueado', PENDENTE:'pendente' };
+const ALLOWED_STATUSES = [PAYMENT_STATUS.ATIVO];
+const CATEGORIES = ['Moradia','Alimentação','Transporte','Saúde','Educação','Lazer','Assinaturas','Cartão de Crédito','Investimentos','Pets','Roupas','Outros'];
+const PAYMENT_TYPES = ['Boleto','Cartão de Crédito','Cartão de Débito','PIX','Transferência','Dinheiro','Débito Automático'];
+
+/* =====================================================
+   HASH & VALIDAÇÕES
+   ===================================================== */
+function _hashSenha(s){let h=5381;for(let i=0;i<s.length;i++){h=((h<<5)+h)^s.charCodeAt(i);h=h>>>0;}return 'ffh_'+h.toString(16).padStart(8,'0');}
+function validarEmail(e){return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(e).trim());}
+function validarSenha(s){return typeof s==='string'&&s.length>=6;}
+
+/* =====================================================
+   ADMIN CONFIG — mude a senha antes de produção!
+   SENHA PADRÃO: Admin@FF2025
+   ===================================================== */
+const ADMIN_CONFIG = { email:'admin@financeflow.com', senhaHash:_hashSenha('Admin@FF2025'), nome:'Administrador' };
+
+/* =====================================================
+   DB LAYER (localStorage)
+   ===================================================== */
+const DB = {
+  getUsuarios(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS)||'[]');}catch{return[];}},
+  setUsuarios(u){localStorage.setItem(STORAGE_KEYS.USERS,JSON.stringify(u));},
+  findByEmail(e){return this.getUsuarios().find(u=>u.email.toLowerCase()===String(e).toLowerCase().trim());},
+  findById(id){return this.getUsuarios().find(u=>u.id===id);},
+  addUsuario(u){const a=this.getUsuarios();a.push(u);this.setUsuarios(a);},
+  updateUsuario(id,f){this.setUsuarios(this.getUsuarios().map(u=>u.id===id?{...u,...f}:u));},
+  deleteUsuario(id){this.setUsuarios(this.getUsuarios().filter(u=>u.id!==id));localStorage.removeItem('ff_finance_'+id);},
+  getSession(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.SESSION)||'null');}catch{return null;}},
+  setSession(s){localStorage.setItem(STORAGE_KEYS.SESSION,JSON.stringify(s));},
+  clearSession(){localStorage.removeItem(STORAGE_KEYS.SESSION);},
+  getAdminSession(){try{return JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_SESSION)||'null');}catch{return null;}},
+  setAdminSession(s){localStorage.setItem(STORAGE_KEYS.ADMIN_SESSION,JSON.stringify(s));},
+  clearAdminSession(){localStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION);},
+};
+
+/* =====================================================
+   AUTH SERVICE
+   ===================================================== */
+const AuthService = {
+  registrar({nome,email,senha,confirmarSenha}){
+    if(!nome||nome.trim().length<2) return{ok:false,erro:'Nome deve ter pelo menos 2 caracteres.'};
+    if(!validarEmail(email)) return{ok:false,erro:'Informe um e-mail válido.'};
+    if(!validarSenha(senha)) return{ok:false,erro:'A senha deve ter no mínimo 6 caracteres.'};
+    if(senha!==confirmarSenha) return{ok:false,erro:'As senhas não coincidem.'};
+    if(DB.findByEmail(email)) return{ok:false,erro:'Este e-mail já está cadastrado.'};
+    const u={id:_uid(),nome:nome.trim(),email:email.toLowerCase().trim(),senhaHash:_hashSenha(senha),
+      statusPagamento:PAYMENT_STATUS.PENDENTE,dataCadastro:new Date().toISOString(),
+      dataExpiracao:null,dataAtivacao:null,ultimoAcesso:null,plano:'basico',observacao:''};
+    DB.addUsuario(u);
+    return{ok:true,usuario:u};
+  },
+  login({email,senha}){
+    if(!email||!senha) return{ok:false,erro:'Preencha e-mail e senha.'};
+    const u=DB.findByEmail(email);
+    if(!u) return{ok:false,erro:'E-mail ou senha incorretos.'};
+    if(u.senhaHash!==_hashSenha(senha)) return{ok:false,erro:'E-mail ou senha incorretos.'};
+    if(!ALLOWED_STATUSES.includes(u.statusPagamento)) return{ok:false,bloqueado:true,statusPagamento:u.statusPagamento,usuario:u};
+    DB.updateUsuario(u.id,{ultimoAcesso:new Date().toISOString()});
+    const sessao={userId:u.id,nome:u.nome,email:u.email,plano:u.plano,loginAt:new Date().toISOString()};
+    DB.setSession(sessao);
+    return{ok:true,usuario:u,sessao};
+  },
+  logout(){DB.clearSession();},
+  verificarAcesso(){
+    const s=DB.getSession();if(!s)return{autenticado:false};
+    const u=DB.findById(s.userId);if(!u){DB.clearSession();return{autenticado:false};}
+    if(!ALLOWED_STATUSES.includes(u.statusPagamento)) return{autenticado:true,bloqueado:true,statusPagamento:u.statusPagamento,sessao:s,usuario:u};
+    return{autenticado:true,bloqueado:false,sessao:s,usuario:u};
+  },
+  getSessao(){return DB.getSession();},
+  getUsuarioAtual(){const s=DB.getSession();return s?(DB.findById(s.userId)||null):null;},
+};
+
+/* =====================================================
+   ADMIN SERVICE
+   ===================================================== */
+const AdminService = {
+  login({email,senha}){
+    if(!email||!senha) return{ok:false,erro:'Preencha e-mail e senha.'};
+    if(email.toLowerCase().trim()!==ADMIN_CONFIG.email.toLowerCase()) return{ok:false,erro:'Credenciais inválidas.'};
+    if(_hashSenha(senha)!==ADMIN_CONFIG.senhaHash) return{ok:false,erro:'Credenciais inválidas.'};
+    DB.setAdminSession({loginAt:new Date().toISOString()});
+    return{ok:true};
+  },
+  logout(){DB.clearAdminSession();},
+  estaLogado(){return DB.getAdminSession()!==null;},
+  listarUsuarios(){return DB.getUsuarios();},
+  setStatus(userId,novoStatus){
+    if(!Object.values(PAYMENT_STATUS).includes(novoStatus)) return{ok:false,erro:'Status inválido.'};
+    const u=DB.findById(userId);if(!u)return{ok:false,erro:'Usuário não encontrado.'};
+    const campos={statusPagamento:novoStatus};
+    if(novoStatus===PAYMENT_STATUS.ATIVO){const e=new Date();e.setDate(e.getDate()+30);campos.dataExpiracao=e.toISOString();campos.dataAtivacao=new Date().toISOString();}
+    if([PAYMENT_STATUS.VENCIDO,PAYMENT_STATUS.BLOQUEADO,PAYMENT_STATUS.PENDENTE].includes(novoStatus)){
+      const s=DB.getSession();if(s&&s.userId===userId)DB.clearSession();
+    }
+    DB.updateUsuario(userId,campos);return{ok:true};
+  },
+  atualizarUsuario(userId,{plano,observacao,dataExpiracao}){
+    const c={};
+    if(plano!==undefined)c.plano=plano;
+    if(observacao!==undefined)c.observacao=observacao;
+    if(dataExpiracao!==undefined)c.dataExpiracao=dataExpiracao||null;
+    DB.updateUsuario(userId,c);return{ok:true};
+  },
+  excluirUsuario(userId){
+    const s=DB.getSession();if(s&&s.userId===userId)DB.clearSession();
+    DB.deleteUsuario(userId);return{ok:true};
+  },
+  getEstatisticas(){
+    const u=DB.getUsuarios();
+    return{total:u.length,ativo:u.filter(x=>x.statusPagamento==='ativo').length,pendente:u.filter(x=>x.statusPagamento==='pendente').length,vencido:u.filter(x=>x.statusPagamento==='vencido').length,bloqueado:u.filter(x=>x.statusPagamento==='bloqueado').length};
+  },
+};
+
+/* =====================================================
+   DADOS DEMO
+   ===================================================== */
+(function(){
+  if(DB.getUsuarios().length>0)return;
+  const agora=new Date(),exp30=new Date();exp30.setDate(exp30.getDate()+30);
+  DB.setUsuarios([
+    {id:'demo_ativo_001',nome:'João Silva',email:'demo@financeflow.com',senhaHash:_hashSenha('Demo@123'),statusPagamento:'ativo',dataCadastro:agora.toISOString(),dataExpiracao:exp30.toISOString(),dataAtivacao:agora.toISOString(),ultimoAcesso:agora.toISOString(),plano:'pro',observacao:'Conta demo ativa'},
+    {id:'demo_pendente_003',nome:'Carlos Oliveira',email:'pendente@financeflow.com',senhaHash:_hashSenha('Demo@123'),statusPagamento:'pendente',dataCadastro:agora.toISOString(),dataExpiracao:null,dataAtivacao:null,ultimoAcesso:null,plano:'basico',observacao:'Aguardando confirmação'},
+    {id:'demo_vencido_002',nome:'Maria Santos',email:'vencido@financeflow.com',senhaHash:_hashSenha('Demo@123'),statusPagamento:'vencido',dataCadastro:new Date('2024-01-01').toISOString(),dataExpiracao:new Date('2024-01-01').toISOString(),dataAtivacao:new Date('2023-12-01').toISOString(),ultimoAcesso:new Date('2024-01-15').toISOString(),plano:'pro',observacao:''},
+    {id:'demo_bloqueado_004',nome:'Pedro Costa',email:'bloqueado@financeflow.com',senhaHash:_hashSenha('Demo@123'),statusPagamento:'bloqueado',dataCadastro:new Date('2023-11-01').toISOString(),dataExpiracao:null,dataAtivacao:null,ultimoAcesso:new Date('2023-12-20').toISOString(),plano:'basico',observacao:'Bloqueado por inadimplência'},
+  ]);
+})();
+
+/* =====================================================
+   SCREEN MANAGER
+   ===================================================== */
+let currentUser = null;
+const ALL_SCREENS = ['login','cadastro','bloqueado','admin-login','dashboard','admin'];
+
+function showScreen(name){
+  ALL_SCREENS.forEach(s=>{
+    const el=document.getElementById('screen-'+s);
+    if(el)el.style.display='none';
+  });
+  const target=document.getElementById('screen-'+name);
+  if(!target)return;
+  target.style.display='flex';
+  if(name==='dashboard'){initDashboard();}
+  if(name==='admin'){initAdmin();}
+}
+
+function showBlockedScreen(status,usuario){
+  const msgs={
+    vencido:{badge:'● Assinatura Vencida',title:'Assinatura Vencida',msg:'Seu período de acesso expirou. Renove sua assinatura para continuar.'},
+    bloqueado:{badge:'⊘ Conta Bloqueada',title:'Conta Bloqueada',msg:'Sua conta foi bloqueada. Entre em contato com o suporte.'},
+    pendente:{badge:'◌ Pagamento Pendente',title:'Pagamento Pendente',msg:'Identificamos um pagamento pendente. Regularize para liberar seu acesso.'},
+  };
+  const info=msgs[status]||msgs.vencido;
+  document.getElementById('blockedBadge').textContent=info.badge;
+  document.getElementById('blockedTitle').textContent=info.title;
+  document.getElementById('blockedMessage').textContent=info.msg;
+  const userEl=document.getElementById('blockedUser');
+  if(usuario?.email){userEl.style.display='flex';document.getElementById('blockedUserEmail').textContent=usuario.email;}
+  else{userEl.style.display='none';}
+  showScreen('bloqueado');
+}
+
+/* =====================================================
+   HELPERS GLOBAIS
+   ===================================================== */
+function _uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+function fmt(v){return parseFloat(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+function fmtMonth(ym){if(!ym)return'';const[y,m]=ym.split('-');const ms=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];return `${ms[parseInt(m,10)-1]} ${y}`;}
+function fmtDate(d){if(!d)return'—';const[y,m,day]=d.split('-');return `${day}/${m}/${y}`;}
+function fmtDatetime(iso){if(!iso)return'—';const d=new Date(iso);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+function todayYM(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+function addMonths(ym,n){const[y,m]=ym.split('-').map(Number);const d=new Date(y,m-1+n,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+function accountMonth(a){return a.dueDate?a.dueDate.slice(0,7):'';}
+function checkLate(a){if(a.status==='pago')return a;const t=new Date();t.setHours(0,0,0,0);const due=new Date(a.dueDate+'T00:00:00');if(due<t&&a.status!=='atrasado')return{...a,status:'atrasado'};return a;}
+function getInitials(n){const p=(n||'?').trim().split(' ');return p.length>=2?(p[0][0]+p[p.length-1][0]).toUpperCase():p[0].slice(0,2).toUpperCase();}
+function isExpired(iso){return iso&&new Date(iso)<new Date();}
+let _toastTimer;
+function showToast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+type;clearTimeout(_toastTimer);_toastTimer=setTimeout(()=>t.classList.remove('show'),3000);}
+
+/* =====================================================
+   LOGIN SCREEN
+   ===================================================== */
+function setupLoginScreen(){
+  document.getElementById('toggleLoginSenha').onclick=()=>{
+    const i=document.getElementById('loginSenha'),e=document.getElementById('eyeLogin');
+    i.type=i.type==='password'?'text':'password';e.textContent=i.type==='password'?'👁':'🙈';
+  };
+  document.getElementById('linkToCadastro').onclick=e=>{e.preventDefault();showScreen('cadastro');};
+  document.getElementById('linkToAdminLogin').onclick=e=>{e.preventDefault();showScreen('admin-login');};
+  document.getElementById('demoAtivo').onclick=()=>{document.getElementById('loginEmail').value='demo@financeflow.com';document.getElementById('loginSenha').value='Demo@123';};
+  document.getElementById('demoVencido').onclick=()=>{document.getElementById('loginEmail').value='vencido@financeflow.com';document.getElementById('loginSenha').value='Demo@123';};
+  document.getElementById('demoAdmin').onclick=()=>{document.getElementById('loginEmail').value='admin@financeflow.com';document.getElementById('loginSenha').value='Admin@FF2025';};
+
+  document.getElementById('loginForm').onsubmit=e=>{
+    e.preventDefault();
+    const email=document.getElementById('loginEmail').value.trim();
+    const senha=document.getElementById('loginSenha').value;
+    setLoginAlert('','');
+    document.getElementById('errLoginEmail').textContent='';
+    document.getElementById('errLoginSenha').textContent='';
+    let ok=true;
+    if(!email){document.getElementById('errLoginEmail').textContent='Informe seu e-mail.';ok=false;}
+    if(!senha){document.getElementById('errLoginSenha').textContent='Informe sua senha.';ok=false;}
+    if(!ok)return;
+
+    // Verificar se é admin tentando login normal
+    if(email.toLowerCase()===ADMIN_CONFIG.email.toLowerCase()&&_hashSenha(senha)===ADMIN_CONFIG.senhaHash){
+      DB.setAdminSession({loginAt:new Date().toISOString()});
+      showScreen('admin');
+      return;
+    }
+
+    setLoginLoading(true);
+    setTimeout(()=>{
+      const res=AuthService.login({email,senha});
+      setLoginLoading(false);
+      if(res.ok){currentUser=res.usuario;setLoginAlert('Login realizado!','success');setTimeout(()=>showScreen('dashboard'),500);return;}
+      if(res.bloqueado){showBlockedScreen(res.statusPagamento,res.usuario);return;}
+      setLoginAlert(res.erro,'error');
+    },500);
+  };
+}
+function setLoginAlert(msg,type){const el=document.getElementById('loginAlert');el.textContent=msg;el.className='auth-alert auth-alert-'+type;el.style.display=msg?'block':'none';}
+function setLoginLoading(on){document.getElementById('btnLoginText').style.display=on?'none':'inline';document.getElementById('spinnerLogin').style.display=on?'inline-block':'none';document.getElementById('btnLoginSubmit').disabled=on;}
+
+/* =====================================================
+   CADASTRO SCREEN
+   ===================================================== */
+function setupCadastroScreen(){
+  document.getElementById('linkToLogin').onclick=e=>{e.preventDefault();showScreen('login');};
+  document.getElementById('toggleCadSenha').onclick=()=>{const i=document.getElementById('cadSenha'),e=document.getElementById('eyeCad');i.type=i.type==='password'?'text':'password';e.textContent=i.type==='password'?'👁':'🙈';};
+  document.getElementById('toggleCadConf').onclick=()=>{const i=document.getElementById('cadConfirmar'),e=document.getElementById('eyeCadConf');i.type=i.type==='password'?'text':'password';e.textContent=i.type==='password'?'👁':'🙈';};
+  document.getElementById('cadSenha').oninput=e=>{
+    const s=e.target.value,el=document.getElementById('senhaStrength'),fill=document.getElementById('strengthFill'),lbl=document.getElementById('strengthLabel');
+    if(!s){el.style.display='none';return;}el.style.display='flex';
+    let score=0;if(s.length>=6)score++;if(s.length>=10)score++;if(/[A-Z]/.test(s))score++;if(/[0-9]/.test(s))score++;if(/[^A-Za-z0-9]/.test(s))score++;
+    const lv=[{p:'20%',c:'weak',t:'Muito fraca'},{p:'40%',c:'weak',t:'Fraca'},{p:'60%',c:'medium',t:'Média'},{p:'80%',c:'good',t:'Boa'},{p:'100%',c:'strong',t:'Forte'}][Math.max(0,score-1)];
+    fill.style.width=lv.p;fill.className='strength-fill '+lv.c;lbl.textContent=lv.t;lbl.className='strength-label '+lv.c;
+  };
+  document.getElementById('cadForm').onsubmit=e=>{
+    e.preventDefault();
+    const nome=document.getElementById('cadNome').value.trim();
+    const email=document.getElementById('cadEmail').value.trim();
+    const senha=document.getElementById('cadSenha').value;
+    const conf=document.getElementById('cadConfirmar').value;
+    const termos=document.getElementById('aceitarTermos').checked;
+    ['errCadNome','errCadEmail','errCadSenha','errCadConfirmar','errTermos'].forEach(id=>document.getElementById(id).textContent='');
+    setCadAlert('','');
+    let ok=true;
+    if(!nome||nome.length<2){document.getElementById('errCadNome').textContent='Informe seu nome completo.';ok=false;}
+    if(!email){document.getElementById('errCadEmail').textContent='Informe seu e-mail.';ok=false;}
+    if(!senha){document.getElementById('errCadSenha').textContent='Informe uma senha.';ok=false;}
+    if(!conf){document.getElementById('errCadConfirmar').textContent='Confirme sua senha.';ok=false;}
+    if(!termos){document.getElementById('errTermos').textContent='Aceite os termos para continuar.';ok=false;}
+    if(!ok)return;
+    setCadLoading(true);
+    setTimeout(()=>{
+      const res=AuthService.registrar({nome,email,senha,confirmarSenha:conf});
+      setCadLoading(false);
+      if(!res.ok){
+        if(res.erro.includes('coincidem'))document.getElementById('errCadConfirmar').textContent=res.erro;
+        else if(res.erro.includes('senha'))document.getElementById('errCadSenha').textContent=res.erro;
+        else if(res.erro.includes('e-mail')||res.erro.includes('e-m'))document.getElementById('errCadEmail').textContent=res.erro;
+        else if(res.erro.includes('Nome'))document.getElementById('errCadNome').textContent=res.erro;
+        else setCadAlert(res.erro,'error');
+        return;
+      }
+      setCadAlert('Conta criada! Aguarde a liberação do acesso pelo administrador.','success');
+      setTimeout(()=>showScreen('login'),2500);
+    },600);
+  };
+}
+function setCadAlert(msg,type){const el=document.getElementById('cadAlert');el.textContent=msg;el.className='auth-alert auth-alert-'+type;el.style.display=msg?'block':'none';}
+function setCadLoading(on){document.getElementById('btnCadText').style.display=on?'none':'inline';document.getElementById('spinnerCad').style.display=on?'inline-block':'none';document.getElementById('btnCadSubmit').disabled=on;}
+
+/* =====================================================
+   BLOQUEADO SCREEN
+   ===================================================== */
+function setupBloqueadoScreen(){
+  document.getElementById('btnBloqueadoSair').onclick=()=>{AuthService.logout();showScreen('login');};
+  document.getElementById('btnJaPaguei').onclick=function(){
+    this.disabled=true;this.textContent='⟳ Verificando...';
+    setTimeout(()=>{this.textContent='✓ Já regularizei';this.disabled=false;
+      alert('Em um sistema real, aqui seria feita uma verificação automática.\nEntre em contato com o suporte para liberar o acesso.');
+    },2000);
+  };
+  document.getElementById('btnContatoSuporte').onclick=()=>alert('Entre em contato: suporte@financeflow.com');
+}
+
+/* =====================================================
+   ADMIN LOGIN SCREEN
+   ===================================================== */
+function setupAdminLoginScreen(){
+  document.getElementById('linkAdminToLogin').onclick=e=>{e.preventDefault();showScreen('login');};
+  document.getElementById('toggleAdminSenha').onclick=()=>{const i=document.getElementById('adminLoginSenha'),e=document.getElementById('eyeAdmin');i.type=i.type==='password'?'text':'password';e.textContent=i.type==='password'?'👁':'🙈';};
+  document.getElementById('demoAdminFill').onclick=()=>{document.getElementById('adminLoginEmail').value='admin@financeflow.com';document.getElementById('adminLoginSenha').value='Admin@FF2025';};
+  document.getElementById('adminLoginForm').onsubmit=e=>{
+    e.preventDefault();
+    const email=document.getElementById('adminLoginEmail').value.trim();
+    const senha=document.getElementById('adminLoginSenha').value;
+    setAdminLoginAlert('','');
+    if(!email||!senha){setAdminLoginAlert('Preencha e-mail e senha.','error');return;}
+    setAdminLoginLoading(true);
+    setTimeout(()=>{
+      const res=AdminService.login({email,senha});
+      setAdminLoginLoading(false);
+      if(res.ok){setAdminLoginAlert('Acesso liberado!','success');setTimeout(()=>showScreen('admin'),400);}
+      else setAdminLoginAlert(res.erro,'error');
+    },500);
+  };
+}
+function setAdminLoginAlert(msg,type){const el=document.getElementById('adminLoginAlert');el.textContent=msg;el.className='auth-alert auth-alert-'+type;el.style.display=msg?'block':'none';}
+function setAdminLoginLoading(on){document.getElementById('btnAdminLoginText').style.display=on?'none':'inline';document.getElementById('spinnerAdminLogin').style.display=on?'inline-block':'none';document.getElementById('btnAdminLoginSubmit').disabled=on;}
+
+/* =====================================================
+   DASHBOARD — ESTADO POR USUÁRIO
+   ===================================================== */
+let state={accounts:[],installmentGroups:[],monthlyIncome:{},currentMonth:'',editingAccountId:null};
+
+function storageKey(){return 'ff_finance_'+(currentUser?.id||'anon');}
+function saveState(){localStorage.setItem(storageKey(),JSON.stringify({accounts:state.accounts,installmentGroups:state.installmentGroups,monthlyIncome:state.monthlyIncome}));}
+function loadState(){
+  try{const raw=localStorage.getItem(storageKey());if(raw){const d=JSON.parse(raw);state.accounts=d.accounts||[];state.installmentGroups=d.installmentGroups||[];state.monthlyIncome=d.monthlyIncome||{};}}
+  catch(e){console.warn('Erro estado:',e);}
+  state.accounts=state.accounts.map(checkLate);
+}
+
+function initDashboard(){
+  currentUser=AuthService.getUsuarioAtual();
+  if(!currentUser){showScreen('login');return;}
+  loadState();
+  populateSelects();
+  renderUserInfo();
+  setMonth(todayYM());
+  renderDashboard();
+  if(state.accounts.length===0){addSampleData();showToast(`Bem-vindo, ${currentUser.nome.split(' ')[0]}! 🎉`,'info');}
+}
+
+function renderUserInfo(){
+  const nome=currentUser?.nome||'Usuário',email=currentUser?.email||'',init=getInitials(nome);
+  document.getElementById('sidebarAvatar').textContent=init;
+  document.getElementById('sidebarUserName').textContent=nome;
+  document.getElementById('sidebarUserEmail').textContent=email;
+  document.getElementById('topbarAvatar').textContent=init;
+  document.getElementById('topbarAvatar').title=`${nome} — ${email}`;
+}
+
+function populateSelects(){
+  const catSelects=['accCategory','dashFilterCategory','accFilterCategory','instCategory'];
+  catSelects.forEach(id=>{const el=document.getElementById(id);if(!el)return;const isF=id.includes('Filter');el.innerHTML=isF?'<option value="">Todas as categorias</option>':'<option value="">Selecione...</option>';CATEGORIES.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;el.appendChild(o);});});
+  const typeSelects=['accPaymentType','accFilterType','instPaymentType'];
+  typeSelects.forEach(id=>{const el=document.getElementById(id);if(!el)return;const isF=id.includes('Filter');el.innerHTML=isF?'<option value="">Tipo de pagamento</option>':'<option value="">Selecione...</option>';PAYMENT_TYPES.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;el.appendChild(o);});});
+}
+
+function setMonth(ym){state.currentMonth=ym;document.getElementById('monthLabel').textContent=fmtMonth(ym);const inc=state.monthlyIncome[ym]||0;document.getElementById('monthlyIncome').value=inc>0?inc:'';}
+
+/* =====================================================
+   DASHBOARD RENDERS
+   ===================================================== */
+function navigate(page){
+  const sc=document.getElementById('screen-dashboard');
+  sc.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  sc.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  sc.querySelector(`[data-page="${page}"]`).classList.add('active');
+  document.getElementById('dashTopbarTitle').textContent={dashboard:'Dashboard',accounts:'Contas',installments:'Parcelas',categories:'Categorias'}[page];
+  renderPage(page);
+  closeDashSidebar();
+}
+
+function renderPage(page){
+  if(page==='dashboard')renderDashboard();
+  else if(page==='accounts')renderAccounts();
+  else if(page==='installments')renderInstallments();
+  else if(page==='categories')renderCategories();
+}
+
+function renderDashboard(){
+  const ym=state.currentMonth,accs=state.accounts.filter(a=>accountMonth(a)===ym);
+  const total=accs.reduce((s,a)=>s+parseFloat(a.value||0),0);
+  const paid=accs.filter(a=>a.status==='pago').reduce((s,a)=>s+parseFloat(a.value||0),0);
+  const pending=accs.filter(a=>a.status==='pendente').reduce((s,a)=>s+parseFloat(a.value||0),0);
+  const late=accs.filter(a=>a.status==='atrasado').reduce((s,a)=>s+parseFloat(a.value||0),0);
+  document.getElementById('cardTotal').textContent=fmt(total);document.getElementById('cardPaid').textContent=fmt(paid);document.getElementById('cardPending').textContent=fmt(pending);document.getElementById('cardLate').textContent=fmt(late);
+  document.getElementById('cardTotalCount').textContent=`${accs.length} conta${accs.length!==1?'s':''}`;
+  document.getElementById('cardPaidCount').textContent=`${accs.filter(a=>a.status==='pago').length} paga${accs.filter(a=>a.status==='pago').length!==1?'s':''}`;
+  document.getElementById('cardPendingCount').textContent=`${accs.filter(a=>a.status==='pendente').length} pendente${accs.filter(a=>a.status==='pendente').length!==1?'s':''}`;
+  document.getElementById('cardLateCount').textContent=`${accs.filter(a=>a.status==='atrasado').length} atrasada${accs.filter(a=>a.status==='atrasado').length!==1?'s':''}`;
+  const income=parseFloat(state.monthlyIncome[ym]||0),balance=income-paid;
+  document.getElementById('balanceIncome').textContent=fmt(income);document.getElementById('balanceExpense').textContent=fmt(paid);
+  const bEl=document.getElementById('balanceFinal');bEl.textContent=fmt(balance);bEl.className='balance-amount '+(balance>=0?'balance-final-positive':'balance-final-negative');
+  const pct=total>0?Math.round((paid/total)*100):0;
+  document.getElementById('progressBar').style.width=pct+'%';document.getElementById('progressPct').textContent=pct+'%';
+  renderAccountsList('dashAccountsList',applyDashFilters(accs));
+}
+
+function applyDashFilters(accs){
+  const search=(document.getElementById('dashSearch')?.value||'').toLowerCase();
+  const status=document.getElementById('dashFilterStatus')?.value||'';
+  const category=document.getElementById('dashFilterCategory')?.value||'';
+  return accs.filter(a=>{if(search&&!a.name.toLowerCase().includes(search))return false;if(status&&a.status!==status)return false;if(category&&a.category!==category)return false;return true;});
+}
+
+function renderAccounts(){
+  let accs=state.accounts.filter(a=>accountMonth(a)===state.currentMonth);
+  const search=(document.getElementById('accSearch')?.value||'').toLowerCase();
+  const status=document.getElementById('accFilterStatus')?.value||'';
+  const category=document.getElementById('accFilterCategory')?.value||'';
+  const type=document.getElementById('accFilterType')?.value||'';
+  accs=accs.filter(a=>{if(search&&!a.name.toLowerCase().includes(search))return false;if(status&&a.status!==status)return false;if(category&&a.category!==category)return false;if(type&&a.paymentType!==type)return false;return true;});
+  renderAccountsList('accAccountsList',accs);
+}
+
+function renderAccountsList(cid,accs){
+  const c=document.getElementById(cid);if(!c)return;
+  if(accs.length===0){c.innerHTML='<div class="empty-state"><div class="empty-icon">◎</div><div class="empty-text">Nenhuma conta encontrada para este mês.</div></div>';return;}
+  const ord={atrasado:0,pendente:1,pago:2};
+  const sorted=[...accs].sort((a,b)=>{const s=ord[a.status]-ord[b.status];return s!==0?s:(a.dueDate||'').localeCompare(b.dueDate||'');});
+  c.innerHTML=sorted.map(a=>{
+    const ip=a.status==='pago';
+    const it=a.installmentGroupId?`<span class="acc-tag tag-installment">${a.installmentNumber}/${a.totalInstallments} parcela</span>`:'';
+    const pt=a.paidDate?`<span class="acc-tag tag-paid-date">✓ Pago em ${fmtDate(a.paidDate)}</span>`:'';
+    const ob=a.observation?`<div class="acc-obs">${a.observation}</div>`:'';
+    return `<div class="account-card status-${a.status}"><div class="acc-check ${ip?'checked':''}" onclick="togglePaid('${a.id}')">${ip?'✓':''}</div><div class="acc-info"><div class="acc-name ${ip?'paid-name':''}">${a.name}</div><div class="acc-meta"><span class="acc-tag tag-category">${a.category}</span><span class="acc-tag tag-type">${a.paymentType}</span><span class="acc-tag tag-due">Venc. ${fmtDate(a.dueDate)}</span>${it}${pt}</div>${ob}</div><div class="acc-right"><div class="acc-value">${fmt(a.value)}</div><span class="status-badge badge-${a.status}">${a.status}</span><div class="acc-actions"><button class="btn-icon" onclick="openEditAccount('${a.id}')" title="Editar">✎</button><button class="btn-icon delete" onclick="deleteAccount('${a.id}')" title="Excluir">✕</button></div></div></div>`;
+  }).join('');
+}
+
+function togglePaid(id){
+  const idx=state.accounts.findIndex(a=>a.id===id);if(idx===-1)return;
+  const a=state.accounts[idx];
+  if(a.status==='pago'){state.accounts[idx]={...a,status:'pendente',paidDate:null};showToast('Marcada como pendente.','info');}
+  else{const t=new Date();const pd=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;state.accounts[idx]={...a,status:'pago',paidDate:pd};showToast('Pago! ✓','success');}
+  saveState();
+  const ap=document.querySelector('#screen-dashboard .page.active')?.id?.replace('page-','');
+  if(ap)renderPage(ap);
+}
+
+function renderCategories(){
+  const c=document.getElementById('categoriesGrid');if(!c)return;
+  const ym=state.currentMonth,accs=state.accounts.filter(a=>accountMonth(a)===ym);
+  const total=accs.reduce((s,a)=>s+parseFloat(a.value||0),0);
+  if(accs.length===0){c.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">◑</div><div class="empty-text">Nenhuma conta neste mês.</div></div>';return;}
+  const by={};accs.forEach(a=>{if(!by[a.category])by[a.category]={total:0,paid:0,count:0};by[a.category].total+=parseFloat(a.value||0);by[a.category].count++;if(a.status==='pago')by[a.category].paid+=parseFloat(a.value||0);});
+  c.innerHTML=Object.entries(by).sort((a,b)=>b[1].total-a[1].total).map(([cat,d])=>{
+    const pct=total>0?Math.round((d.total/total)*100):0,pp=d.total>0?Math.round((d.paid/d.total)*100):0;
+    return `<div class="category-card"><div class="cat-header"><div class="cat-name">${cat}</div><span class="cat-count">${d.count} conta${d.count!==1?'s':''}</span></div><div class="cat-total">${fmt(d.total)}</div><div class="cat-bar-track"><div class="cat-bar-fill" style="width:${pct}%"></div></div><div class="cat-paid-ratio">${pct}% do total · ${pp}% pago</div></div>`;
+  }).join('');
+}
+
+/* =====================================================
+   ACCOUNT MODAL
+   ===================================================== */
+function openNewAccount(){
+  state.editingAccountId=null;
+  document.getElementById('modalAccountTitle').textContent='Nova Conta';
+  ['accName','accObservation'].forEach(id=>document.getElementById(id).value='');
+  ['accCategory','accPaymentType'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('accStatus').value='pendente';
+  document.getElementById('accValue').value='';
+  const[y,m]=state.currentMonth.split('-');document.getElementById('accDueDate').value=`${y}-${m}-01`;
+  document.getElementById('modalAccount').classList.add('show');
+}
+function openEditAccount(id){
+  const a=state.accounts.find(x=>x.id===id);if(!a)return;
+  state.editingAccountId=id;
+  document.getElementById('modalAccountTitle').textContent='Editar Conta';
+  document.getElementById('accName').value=a.name;document.getElementById('accCategory').value=a.category;
+  document.getElementById('accValue').value=a.value;document.getElementById('accDueDate').value=a.dueDate;
+  document.getElementById('accPaymentType').value=a.paymentType;document.getElementById('accStatus').value=a.status;
+  document.getElementById('accObservation').value=a.observation||'';
+  document.getElementById('modalAccount').classList.add('show');
+}
+function closeAccountModal(){document.getElementById('modalAccount').classList.remove('show');state.editingAccountId=null;}
+function saveAccount(){
+  const name=document.getElementById('accName').value.trim(),category=document.getElementById('accCategory').value;
+  const value=parseFloat(document.getElementById('accValue').value),dueDate=document.getElementById('accDueDate').value;
+  const paymentType=document.getElementById('accPaymentType').value,status=document.getElementById('accStatus').value;
+  const observation=document.getElementById('accObservation').value.trim();
+  if(!name){showToast('Informe o nome da conta.','error');return;}
+  if(!category){showToast('Selecione uma categoria.','error');return;}
+  if(!value||value<=0){showToast('Informe um valor válido.','error');return;}
+  if(!dueDate){showToast('Informe a data de vencimento.','error');return;}
+  if(!paymentType){showToast('Selecione o tipo de pagamento.','error');return;}
+  const d={name,category,value,dueDate,paymentType,status,observation};
+  if(state.editingAccountId){
+    const idx=state.accounts.findIndex(a=>a.id===state.editingAccountId);
+    if(idx!==-1){state.accounts[idx]={...state.accounts[idx],...d,paidDate:status==='pago'?(state.accounts[idx].paidDate||new Date().toISOString().slice(0,10)):null};}
+    showToast('Conta atualizada!','success');
+  }else{
+    state.accounts.push({id:_uid(),...d,paidDate:status==='pago'?new Date().toISOString().slice(0,10):null,installmentGroupId:null,installmentNumber:null,totalInstallments:null});
+    showToast('Conta cadastrada!','success');
+  }
+  saveState();closeAccountModal();
+  const ap=document.querySelector('#screen-dashboard .page.active')?.id?.replace('page-','');if(ap)renderPage(ap);
+}
+function deleteAccount(id){
+  if(!confirm('Excluir esta conta?'))return;
+  state.accounts=state.accounts.filter(a=>a.id!==id);saveState();showToast('Conta excluída.','info');
+  const ap=document.querySelector('#screen-dashboard .page.active')?.id?.replace('page-','');if(ap)renderPage(ap);
+}
+
+/* =====================================================
+   INSTALLMENTS
+   ===================================================== */
+function openInstallmentModal(){
+  ['instName','instTotal','instCount','instValue'].forEach(id=>document.getElementById(id).value='');
+  ['instCategory','instPaymentType'].forEach(id=>document.getElementById(id).value='');
+  const[y,m]=state.currentMonth.split('-');document.getElementById('instStartMonth').value=`${y}-${m}`;
+  document.getElementById('modalInstallment').classList.add('show');
+}
+function closeInstallmentModal(){document.getElementById('modalInstallment').classList.remove('show');}
+function saveInstallmentGroup(){
+  const name=document.getElementById('instName').value.trim(),totalValue=parseFloat(document.getElementById('instTotal').value);
+  const instCount=parseInt(document.getElementById('instCount').value),startMonth=document.getElementById('instStartMonth').value;
+  const category=document.getElementById('instCategory').value,paymentType=document.getElementById('instPaymentType').value;
+  const instValue=parseFloat(document.getElementById('instValue').value)||(totalValue/instCount);
+  if(!name){showToast('Informe o nome da compra.','error');return;}
+  if(!totalValue||totalValue<=0){showToast('Informe o valor total.','error');return;}
+  if(!instCount||instCount<1){showToast('Informe o número de parcelas.','error');return;}
+  if(!startMonth){showToast('Informe o mês inicial.','error');return;}
+  if(!category){showToast('Selecione uma categoria.','error');return;}
+  const gid=_uid();
+  state.installmentGroups.push({id:gid,name,totalValue,installmentCount:instCount,installmentValue:instValue,startMonth,category,paymentType:paymentType||'Cartão de Crédito'});
+  for(let i=1;i<=instCount;i++){
+    const month=addMonths(startMonth,i-1),[y,m]=month.split('-'),dueDate=`${y}-${m}-10`;
+    state.accounts.push({id:_uid(),name:`${name} (${i}/${instCount})`,category,value:instValue,dueDate,paymentType:paymentType||'Cartão de Crédito',status:checkLate({status:'pendente',dueDate}).status,observation:`Parcela ${i} de ${instCount} — Total: ${fmt(totalValue)}`,paidDate:null,installmentGroupId:gid,installmentNumber:i,totalInstallments:instCount});
+  }
+  saveState();closeInstallmentModal();showToast(`${instCount} parcelas criadas!`,'success');renderInstallments();
+}
+
+function renderInstallments(){
+  const c=document.getElementById('installmentsList');if(!c)return;
+  if(state.installmentGroups.length===0){c.innerHTML='<div class="empty-state"><div class="empty-icon">◫</div><div class="empty-text">Nenhuma compra parcelada cadastrada.</div></div>';return;}
+  c.innerHTML=state.installmentGroups.map(g=>{
+    const items=state.accounts.filter(a=>a.installmentGroupId===g.id).sort((a,b)=>a.installmentNumber-b.installmentNumber);
+    const paid=items.filter(a=>a.status==='pago').length,pct=items.length>0?Math.round((paid/items.length)*100):0;
+    const html=items.map(it=>`<div class="installment-item"><span class="inst-num">#${it.installmentNumber}</span><span class="inst-month">${fmtMonth(accountMonth(it))} — vence ${fmtDate(it.dueDate)}</span><span class="inst-value">${fmt(it.value)}</span><div class="acc-check ${it.status==='pago'?'checked':''}" onclick="togglePaid('${it.id}');renderInstallments();" style="width:20px;height:20px;font-size:.65rem">${it.status==='pago'?'✓':''}</div><span class="status-badge badge-${it.status}">${it.status}</span><button class="btn-icon delete" onclick="deleteInstItem('${it.id}','${g.id}')">✕</button></div>`).join('');
+    return `<div class="installment-group"><div class="installment-group-header" onclick="toggleIG('${g.id}')"><div><div class="ig-name">${g.name}</div><div class="ig-meta"><span class="ig-info">Total: <span>${fmt(g.totalValue)}</span></span><span class="ig-info">Parcela: <span>${fmt(g.installmentValue)}</span></span><span class="ig-info">Pagas: <span>${paid}/${items.length}</span></span></div></div><div class="ig-progress-wrap"><div class="ig-progress-mini"><div class="ig-progress-mini-fill" style="width:${pct}%"></div></div><span class="ig-info">${pct}%</span><button class="btn-icon delete" onclick="event.stopPropagation();deleteIG('${g.id}')">✕</button><span class="ig-toggle" id="ig-toggle-${g.id}">▼</span></div></div><div class="installment-group-body" id="ig-body-${g.id}">${html}</div></div>`;
+  }).join('');
+}
+function toggleIG(id){document.getElementById('ig-body-'+id)?.classList.toggle('open');document.getElementById('ig-toggle-'+id)?.classList.toggle('open');}
+function deleteIG(gid){if(!confirm('Excluir grupo e todas as parcelas?'))return;state.installmentGroups=state.installmentGroups.filter(g=>g.id!==gid);state.accounts=state.accounts.filter(a=>a.installmentGroupId!==gid);saveState();showToast('Grupo excluído.','info');renderInstallments();}
+function deleteInstItem(aid,gid){if(!confirm('Excluir esta parcela?'))return;state.accounts=state.accounts.filter(a=>a.id!==aid);if(!state.accounts.some(a=>a.installmentGroupId===gid))state.installmentGroups=state.installmentGroups.filter(g=>g.id!==gid);saveState();showToast('Parcela excluída.','info');renderInstallments();}
+
+/* =====================================================
+   EXPORTAR CSV
+   ===================================================== */
+function exportCSV(){
+  const ym=state.currentMonth,accs=state.accounts.filter(a=>accountMonth(a)===ym);
+  if(accs.length===0){showToast('Nenhuma conta para exportar.','error');return;}
+  const h=['Nome','Categoria','Valor','Vencimento','Tipo Pagamento','Status','Data Pgto','Observação'];
+  const rows=accs.map(a=>[a.name,a.category,parseFloat(a.value).toFixed(2).replace('.',','),fmtDate(a.dueDate),a.paymentType,a.status,a.paidDate?fmtDate(a.paidDate):'',a.observation||'']);
+  const csv=[h,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`FinanceFlow_${currentUser?.nome?.replace(/\s+/g,'_')||'usuario'}_${ym}.csv`;a.click();URL.revokeObjectURL(url);
+  showToast('CSV exportado!','success');
+}
+
+/* =====================================================
+   SAMPLE DATA
+   ===================================================== */
+function addSampleData(){
+  const ym=state.currentMonth,[y,m]=ym.split('-'),pad=n=>String(n).padStart(2,'0');
+  const s=[
+    {name:'Aluguel',category:'Moradia',value:1800,dueDate:`${y}-${m}-05`,paymentType:'Transferência',status:'pago',observation:'Pago via transferência'},
+    {name:'Internet Fibra',category:'Assinaturas',value:99.9,dueDate:`${y}-${m}-10`,paymentType:'Débito Automático',status:'pago',observation:''},
+    {name:'Mercado',category:'Alimentação',value:650,dueDate:`${y}-${m}-15`,paymentType:'Cartão de Débito',status:'pendente',observation:'Estimativa mensal'},
+    {name:'Plano de Saúde',category:'Saúde',value:320,dueDate:`${y}-${m}-20`,paymentType:'Débito Automático',status:'pendente',observation:''},
+    {name:'Academia',category:'Lazer',value:89.9,dueDate:`${y}-${m}-25`,paymentType:'Cartão de Crédito',status:'pendente',observation:''},
+    {name:'Conta de Luz',category:'Moradia',value:185,dueDate:`${y}-${m}-08`,paymentType:'Boleto',status:'atrasado',observation:'Verificar débito'},
+  ];
+  s.forEach(x=>{state.accounts.push({id:_uid(),...x,paidDate:x.status==='pago'?`${y}-${m}-${pad(Math.floor(Math.random()*5)+1)}`:null,installmentGroupId:null,installmentNumber:null,totalInstallments:null});});
+  state.monthlyIncome[ym]=5000;saveState();document.getElementById('monthlyIncome').value=5000;
+}
+
+/* =====================================================
+   DASHBOARD SIDEBAR
+   ===================================================== */
+function openDashSidebar(){document.getElementById('dashSidebar').classList.add('open');document.getElementById('dashOverlay').classList.add('show');}
+function closeDashSidebar(){document.getElementById('dashSidebar').classList.remove('open');document.getElementById('dashOverlay').classList.remove('show');}
+
+/* =====================================================
+   ADMIN PANEL
+   ===================================================== */
+let editingUserId=null,deletingUserId=null;
+
+function initAdmin(){
+  if(!AdminService.estaLogado()){showScreen('admin-login');return;}
+  renderAdminUsers();renderAdminStats('adminStatsGrid');
+}
+
+function renderAdminStats(cid){
+  const s=AdminService.getEstatisticas(),el=document.getElementById(cid);if(!el)return;
+  el.innerHTML=`<div class="admin-stat-card a-total"><div class="asc-label">Total</div><div class="asc-value">${s.total}</div></div><div class="admin-stat-card a-ativo"><div class="asc-label">Ativos</div><div class="asc-value">${s.ativo}</div></div><div class="admin-stat-card a-pendente"><div class="asc-label">Pendentes</div><div class="asc-value">${s.pendente}</div></div><div class="admin-stat-card a-vencido"><div class="asc-label">Vencidos</div><div class="asc-value">${s.vencido}</div></div><div class="admin-stat-card a-bloqueado"><div class="asc-label">Bloqueados</div><div class="asc-value">${s.bloqueado}</div></div>`;
+}
+
+function renderAdminUsers(){
+  const search=(document.getElementById('adminSearchUser')?.value||'').toLowerCase();
+  const status=document.getElementById('adminFilterStatus')?.value||'';
+  const plano=document.getElementById('adminFilterPlano')?.value||'';
+  const ord={pendente:0,ativo:1,vencido:2,bloqueado:3};
+  let users=AdminService.listarUsuarios().filter(u=>{
+    if(search&&!u.nome.toLowerCase().includes(search)&&!u.email.toLowerCase().includes(search))return false;
+    if(status&&u.statusPagamento!==status)return false;
+    if(plano&&u.plano!==plano)return false;
+    return true;
+  }).sort((a,b)=>{const d=ord[a.statusPagamento]-ord[b.statusPagamento];return d!==0?d:(new Date(b.dataCadastro)-new Date(a.dataCadastro));});
+  const tbody=document.getElementById('adminUsersTableBody'),empty=document.getElementById('adminUsersEmpty');
+  if(users.length===0){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=users.map(u=>{
+    const exp=u.dataExpiracao?(isExpired(u.dataExpiracao)?`<span style="color:var(--red)">${fmtDate(u.dataExpiracao)}</span>`:fmtDate(u.dataExpiracao)):'—';
+    return `<tr><td><div class="user-cell"><div class="user-avatar-sm">${getInitials(u.nome)}</div><div><div class="user-name-cell">${u.nome}</div><div class="user-email-cell">${u.email}</div>${u.observacao?`<div class="user-obs-cell">${u.observacao}</div>`:''}</div></div></td><td><span class="plano-badge ${u.plano}">${u.plano}</span></td><td><span class="status-badge badge-${u.statusPagamento}">${u.statusPagamento}</span></td><td class="cell-mono">${fmtDate(u.dataCadastro)}</td><td class="cell-mono">${exp}</td><td class="cell-mono">${u.ultimoAcesso?fmtDate(u.ultimoAcesso):'—'}</td><td><div class="action-btns">${u.statusPagamento!=='ativo'?`<button class="action-btn ativar" onclick="adminAtivar('${u.id}')">✓ Ativar</button>`:''} ${u.statusPagamento!=='pendente'?`<button class="action-btn pendente-btn" onclick="adminSetStatus('${u.id}','pendente')">◌</button>`:''} ${u.statusPagamento!=='vencido'?`<button class="action-btn vencer" onclick="adminSetStatus('${u.id}','vencido')">⊘</button>`:''} ${u.statusPagamento!=='bloqueado'?`<button class="action-btn bloquear" onclick="adminSetStatus('${u.id}','bloqueado')">✕</button>`:''} <button class="action-btn editar" onclick="openEditModal('${u.id}')">✎</button> <button class="action-btn excluir" onclick="openDeleteModal('${u.id}')">🗑</button></div></td></tr>`;
+  }).join('');
+  renderAdminStats('adminStatsGrid');
+}
+
+function adminAtivar(id){const r=AdminService.setStatus(id,'ativo');if(r.ok){showToast('Usuário ativado!','success');renderAdminUsers();}else showToast(r.erro,'error');}
+function adminSetStatus(id,s){if(!confirm(`Marcar como "${s}"?`))return;const r=AdminService.setStatus(id,s);if(r.ok){showToast('Status atualizado.','info');renderAdminUsers();}else showToast(r.erro,'error');}
+
+function openEditModal(id){
+  const u=AdminService.listarUsuarios().find(x=>x.id===id);if(!u)return;
+  editingUserId=id;
+  document.getElementById('editUserPreview').innerHTML=`<div class="edit-user-preview"><div class="user-avatar-sm" style="width:40px;height:40px;font-size:.9rem">${getInitials(u.nome)}</div><div><div style="font-weight:700">${u.nome}</div><div style="font-size:.8rem;color:var(--text3)">${u.email}</div></div></div>`;
+  document.getElementById('editStatus').value=u.statusPagamento;
+  document.getElementById('editPlano').value=u.plano||'basico';
+  document.getElementById('editExpiracao').value=u.dataExpiracao?u.dataExpiracao.slice(0,10):'';
+  document.getElementById('editObs').value=u.observacao||'';
+  document.getElementById('adminModalEdit').classList.add('show');
+}
+function closeEditModal(){document.getElementById('adminModalEdit').classList.remove('show');editingUserId=null;}
+
+function openDeleteModal(id){
+  const u=AdminService.listarUsuarios().find(x=>x.id===id);if(!u)return;
+  deletingUserId=id;document.getElementById('deleteUserName').textContent=`${u.nome} (${u.email})`;
+  document.getElementById('adminModalDelete').classList.add('show');
+}
+function closeDeleteModal(){document.getElementById('adminModalDelete').classList.remove('show');deletingUserId=null;}
+
+function navigateAdmin(sec){
+  const sc=document.getElementById('screen-admin');
+  sc.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  sc.querySelectorAll('[data-section]').forEach(n=>n.classList.remove('active'));
+  document.getElementById('section-'+sec).classList.add('active');
+  sc.querySelector(`[data-section="${sec}"]`).classList.add('active');
+  document.getElementById('adminTopbarTitle').textContent=sec==='usuarios'?'Gerenciar Usuários':'Estatísticas';
+  if(sec==='estatisticas')renderAdminEstatisticas();
+  closeAdminSidebar();
+}
+
+function renderAdminEstatisticas(){
+  renderAdminStats('adminStatsGrid2');
+  const users=AdminService.listarUsuarios(),total=users.length||1;
+  const st=[{k:'ativo',l:'Ativos',c:'bar-ativo'},{k:'pendente',l:'Pendentes',c:'bar-pendente'},{k:'vencido',l:'Vencidos',c:'bar-vencido'},{k:'bloqueado',l:'Bloqueados',c:'bar-bloqueado'}];
+  document.getElementById('adminStatusBars').innerHTML=st.map(s=>{const cnt=users.filter(u=>u.statusPagamento===s.k).length,pct=Math.round((cnt/total)*100);return `<div class="ov-bar-row"><span class="ov-bar-label">${s.l}</span><div class="ov-bar-track"><div class="ov-bar-fill ${s.c}" style="width:${pct}%"></div></div><span class="ov-bar-val">${cnt} <small>(${pct}%)</small></span></div>`;}).join('');
+  const planos=['basico','pro'];
+  document.getElementById('adminPlanoBars').innerHTML=planos.map(p=>{const cnt=users.filter(u=>u.plano===p).length,pct=Math.round((cnt/total)*100);return `<div class="ov-bar-row"><span class="ov-bar-label">${p.charAt(0).toUpperCase()+p.slice(1)}</span><div class="ov-bar-track"><div class="ov-bar-fill bar-ativo" style="width:${pct}%"></div></div><span class="ov-bar-val">${cnt} <small>(${pct}%)</small></span></div>`;}).join('');
+  const recent=[...users].filter(u=>u.ultimoAcesso).sort((a,b)=>new Date(b.ultimoAcesso)-new Date(a.ultimoAcesso)).slice(0,5);
+  document.getElementById('adminRecentActivity').innerHTML=recent.length===0?'<p style="color:var(--text3);font-size:.85rem">Nenhuma atividade.</p>':recent.map(u=>`<div class="ov-activity-row"><div class="user-avatar-sm" style="width:28px;height:28px;font-size:.65rem;flex-shrink:0">${getInitials(u.nome)}</div><div style="min-width:0;flex:1"><div style="font-size:.83rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.nome}</div><div style="font-size:.72rem;color:var(--text3)">${fmtDatetime(u.ultimoAcesso)}</div></div><span class="status-badge badge-${u.statusPagamento}">${u.statusPagamento}</span></div>`).join('');
+}
+
+function openAdminSidebar(){document.getElementById('adminSidebar').classList.add('open');document.getElementById('adminOverlay').classList.add('show');}
+function closeAdminSidebar(){document.getElementById('adminSidebar').classList.remove('open');document.getElementById('adminOverlay').classList.remove('show');}
+
+/* =====================================================
+   INIT — EVENT LISTENERS
+   ===================================================== */
+document.addEventListener('DOMContentLoaded',()=>{
+  // Setup screens
+  setupLoginScreen();
+  setupCadastroScreen();
+  setupBloqueadoScreen();
+  setupAdminLoginScreen();
+
+  // Dashboard nav
+  document.querySelectorAll('#dashSidebar [data-page]').forEach(item=>{
+    item.addEventListener('click',e=>{e.preventDefault();navigate(item.dataset.page);});
+  });
+  document.getElementById('dashMenuToggle').addEventListener('click',openDashSidebar);
+  document.getElementById('dashSidebarClose').addEventListener('click',closeDashSidebar);
+  document.getElementById('dashOverlay').addEventListener('click',closeDashSidebar);
+
+  // Meses
+  document.getElementById('prevMonth').addEventListener('click',()=>{setMonth(addMonths(state.currentMonth,-1));const p=document.querySelector('#screen-dashboard .page.active')?.id?.replace('page-','');if(p)renderPage(p);});
+  document.getElementById('nextMonth').addEventListener('click',()=>{setMonth(addMonths(state.currentMonth,+1));const p=document.querySelector('#screen-dashboard .page.active')?.id?.replace('page-','');if(p)renderPage(p);});
+
+  // Receita
+  document.getElementById('monthlyIncome').addEventListener('input',e=>{state.monthlyIncome[state.currentMonth]=parseFloat(e.target.value)||0;saveState();renderDashboard();});
+
+  // Conta modal
+  document.getElementById('btnNewAccount').addEventListener('click',openNewAccount);
+  document.getElementById('modalAccountClose').addEventListener('click',closeAccountModal);
+  document.getElementById('modalAccountCancel').addEventListener('click',closeAccountModal);
+  document.getElementById('modalAccountSave').addEventListener('click',saveAccount);
+  document.getElementById('modalAccount').addEventListener('click',e=>{if(e.target===document.getElementById('modalAccount'))closeAccountModal();});
+
+  // Parcela modal
+  document.getElementById('btnNewInstallment').addEventListener('click',openInstallmentModal);
+  document.getElementById('modalInstallmentClose').addEventListener('click',closeInstallmentModal);
+  document.getElementById('modalInstallmentCancel').addEventListener('click',closeInstallmentModal);
+  document.getElementById('modalInstallmentSave').addEventListener('click',saveInstallmentGroup);
+  document.getElementById('modalInstallment').addEventListener('click',e=>{if(e.target===document.getElementById('modalInstallment'))closeInstallmentModal();});
+  const calcInst=()=>{const t=parseFloat(document.getElementById('instTotal').value),c=parseInt(document.getElementById('instCount').value);if(t>0&&c>0)document.getElementById('instValue').value=(t/c).toFixed(2);};
+  document.getElementById('instTotal').addEventListener('input',calcInst);document.getElementById('instCount').addEventListener('input',calcInst);
+
+  // Filtros dashboard
+  ['dashSearch','dashFilterStatus','dashFilterCategory'].forEach(id=>{document.getElementById(id)?.addEventListener('input',renderDashboard);document.getElementById(id)?.addEventListener('change',renderDashboard);});
+  document.getElementById('dashClearFilters').addEventListener('click',()=>{'dashSearch,dashFilterStatus,dashFilterCategory'.split(',').forEach(id=>document.getElementById(id).value='');renderDashboard();});
+
+  // Filtros contas
+  ['accSearch','accFilterStatus','accFilterCategory','accFilterType'].forEach(id=>{document.getElementById(id)?.addEventListener('input',renderAccounts);document.getElementById(id)?.addEventListener('change',renderAccounts);});
+  document.getElementById('accClearFilters').addEventListener('click',()=>{'accSearch,accFilterStatus,accFilterCategory,accFilterType'.split(',').forEach(id=>document.getElementById(id).value='');renderAccounts();});
+
+  // CSV e logout dashboard
+  document.getElementById('btnExportCSV').addEventListener('click',exportCSV);
+  document.getElementById('btnDashLogout').addEventListener('click',()=>{if(!confirm('Deseja sair?'))return;AuthService.logout();currentUser=null;showToast('Sessão encerrada.','info');setTimeout(()=>showScreen('login'),600);});
+
+  // Admin nav
+  document.querySelectorAll('#adminSidebar [data-section]').forEach(item=>{item.addEventListener('click',e=>{e.preventDefault();navigateAdmin(item.dataset.section);});});
+  document.getElementById('adminMenuToggle').addEventListener('click',openAdminSidebar);
+  document.getElementById('adminSidebarClose').addEventListener('click',closeAdminSidebar);
+  document.getElementById('adminOverlay').addEventListener('click',closeAdminSidebar);
+  document.getElementById('btnAdminLogout').addEventListener('click',()=>{if(!confirm('Sair do painel?'))return;AdminService.logout();showScreen('login');});
+  document.getElementById('btnVerLogin').addEventListener('click',()=>showScreen('login'));
+
+  // Admin filtros
+  ['adminSearchUser','adminFilterStatus','adminFilterPlano'].forEach(id=>{document.getElementById(id)?.addEventListener('input',renderAdminUsers);document.getElementById(id)?.addEventListener('change',renderAdminUsers);});
+  document.getElementById('adminClearFilters').addEventListener('click',()=>{'adminSearchUser,adminFilterStatus,adminFilterPlano'.split(',').forEach(id=>document.getElementById(id).value='');renderAdminUsers();});
+
+  // Admin modais
+  document.getElementById('adminModalEditClose').addEventListener('click',closeEditModal);
+  document.getElementById('adminModalEditCancel').addEventListener('click',closeEditModal);
+  document.getElementById('adminModalEdit').addEventListener('click',e=>{if(e.target===document.getElementById('adminModalEdit'))closeEditModal();});
+  document.getElementById('adminModalEditSave').addEventListener('click',()=>{
+    if(!editingUserId)return;
+    AdminService.setStatus(editingUserId,document.getElementById('editStatus').value);
+    AdminService.atualizarUsuario(editingUserId,{plano:document.getElementById('editPlano').value,observacao:document.getElementById('editObs').value.trim(),dataExpiracao:document.getElementById('editExpiracao').value?(document.getElementById('editExpiracao').value+'T00:00:00.000Z'):null});
+    showToast('Usuário atualizado!','success');closeEditModal();renderAdminUsers();
+  });
+  document.getElementById('adminModalDeleteClose').addEventListener('click',closeDeleteModal);
+  document.getElementById('adminModalDeleteCancel').addEventListener('click',closeDeleteModal);
+  document.getElementById('adminModalDelete').addEventListener('click',e=>{if(e.target===document.getElementById('adminModalDelete'))closeDeleteModal();});
+  document.getElementById('adminModalDeleteConfirm').addEventListener('click',()=>{if(!deletingUserId)return;AdminService.excluirUsuario(deletingUserId);showToast('Usuário excluído.','info');closeDeleteModal();renderAdminUsers();});
+
+  // VERIFICAR SESSÃO E MOSTRAR TELA INICIAL
+  const acesso=AuthService.verificarAcesso();
+  if(acesso.autenticado&&!acesso.bloqueado){currentUser=acesso.usuario;showScreen('dashboard');}
+  else if(acesso.autenticado&&acesso.bloqueado){showBlockedScreen(acesso.statusPagamento,acesso.usuario);}
+  else if(AdminService.estaLogado()){showScreen('admin');}
+  else{showScreen('login');}
+});
+</script>
+</body>
+</html>

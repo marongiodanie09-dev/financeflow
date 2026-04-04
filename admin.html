@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>FinanceFlow — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d0f14;--bg2:#131720;--bg3:#1a1f2e;--border:#252b3b;--text:#e8ecf4;--text2:#8892a4;--text3:#555f70;--accent:#4f8ef7;--green:#22d07a;--green-bg:rgba(34,208,122,.12);--yellow:#f5c842;--yellow-bg:rgba(245,200,66,.12);--red:#f25c5c;--red-bg:rgba(242,92,92,.12);--blue-bg:rgba(79,142,247,.1);--purple:#a78bfa;--purple-bg:rgba(167,139,250,.1);--radius:12px;--rsm:8px;--sw:240px}
+html{font-size:15px}body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.screen{display:none}.screen.active{display:flex;min-height:100vh}
+
+/* BG */
+.auth-bg{position:fixed;inset:0;pointer-events:none;z-index:0}
+.bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(167,139,250,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,.04) 1px,transparent 1px);background-size:40px 40px}
+.bg-glow{position:absolute;top:-200px;left:-200px;width:600px;height:600px;background:radial-gradient(circle,rgba(167,139,250,.1) 0%,transparent 70%);border-radius:50%;animation:glow 6s ease-in-out infinite alternate}
+@keyframes glow{from{opacity:.6;transform:scale(1)}to{opacity:1;transform:scale(1.15)}}
+
+/* LOGIN */
+#s-login{align-items:center;justify-content:center}
+.login-card{position:relative;z-index:10;background:var(--bg2);border:1px solid rgba(167,139,250,.25);border-radius:20px;padding:48px 40px;width:100%;max-width:420px;margin:24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 24px 80px rgba(0,0,0,.5);animation:ci .3s ease}
+@keyframes ci{from{opacity:0;transform:translateY(-14px) scale(.97)}to{opacity:1;transform:none}}
+.login-icon{font-size:2.2rem;color:var(--purple);text-align:center;line-height:1}
+.brand{display:flex;align-items:center;justify-content:center;gap:10px;font-size:1.1rem}.brand strong{color:var(--purple)}.brand-icon{font-size:1.6rem;color:var(--purple)}
+.login-title{font-size:1.45rem;font-weight:800;text-align:center;letter-spacing:-.02em}
+.login-sub{font-size:.85rem;color:var(--text2);text-align:center}
+.alert{padding:11px 14px;border-radius:var(--rsm);font-size:.84rem;font-weight:500;display:none}.alert.error{background:var(--red-bg);color:var(--red);border:1px solid rgba(242,92,92,.3)}.alert.success{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,208,122,.3)}
+.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:.8rem;font-weight:600;color:var(--text2)}
+.iw{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);transition:border-color .2s,box-shadow .2s;overflow:hidden}.iw:focus-within{border-color:var(--purple);box-shadow:0 0 0 3px rgba(167,139,250,.1)}
+.ii{padding:0 13px;font-size:.85rem;color:var(--text3);flex-shrink:0}
+.iw input{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-family:inherit;font-size:.88rem;padding:12px 0}.iw input::placeholder{color:var(--text3)}
+.eye{background:none;border:none;padding:0 13px;cursor:pointer;font-size:.9rem;color:var(--text3)}.eye:hover{color:var(--text2)}
+.btn-p{width:100%;padding:13px;background:#7c3aed;color:#fff;border:none;border-radius:var(--rsm);font-family:inherit;font-size:.92rem;font-weight:700;cursor:pointer;transition:background .2s,transform .15s;display:flex;align-items:center;justify-content:center;gap:8px}.btn-p:hover:not(:disabled){background:#6d28d9;transform:translateY(-1px)}.btn-p:disabled{opacity:.6;cursor:not-allowed}
+.spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:none}@keyframes sp{to{transform:rotate(360deg)}}
+.demo-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);padding:14px 16px}
+.demo-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px}
+.demo-row{display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:6px;transition:background .15s}.demo-row:hover{background:var(--bg2)}
+.demo-badge{font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:100px;background:var(--purple-bg);color:var(--purple);border:1px solid rgba(167,139,250,.25);white-space:nowrap}
+.demo-info{font-size:.73rem;color:var(--text2);flex:1;font-family:'Space Mono',monospace}.demo-use{font-size:.7rem;color:var(--purple);font-weight:600}
+.back-link{text-align:center;font-size:.82rem;color:var(--text3)}.back-link a{color:var(--text2);text-decoration:none}.back-link a:hover{color:var(--text)}
+
+/* PANEL */
+#s-panel{flex-direction:row}
+.sidebar{width:var(--sw);min-height:100vh;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;left:0;top:0;z-index:200;transition:transform .2s}
+.sb-hd{padding:22px 20px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.sb-close{display:none;background:none;border:none;color:var(--text2);font-size:1.1rem;cursor:pointer;padding:4px 8px;border-radius:6px}.sb-close:hover{background:var(--bg3)}
+.adm-badge{margin:8px 12px 4px;padding:6px 12px;background:var(--purple-bg);border:1px solid rgba(167,139,250,.2);border-radius:6px;font-size:.7rem;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.08em;text-align:center}
+.sb-nav{padding:12px;display:flex;flex-direction:column;gap:4px;flex:1}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:var(--rsm);color:var(--text2);font-size:.9rem;font-weight:500;transition:all .2s;cursor:pointer;text-decoration:none}.nav-item:hover{background:var(--bg3);color:var(--text)}.nav-item.active{background:var(--purple-bg);color:var(--purple);font-weight:600}
+.nav-icon{font-size:1rem;opacity:.7}
+.sb-ft{padding:16px 12px 20px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.btn-exp{width:100%;padding:10px 16px;background:transparent;border:1px solid var(--border);border-radius:var(--rsm);color:var(--text2);font-family:inherit;font-size:.85rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;justify-content:center;text-decoration:none}.btn-exp:hover{border-color:var(--purple);color:var(--purple)}
+.btn-lo{width:100%;padding:10px 16px;background:transparent;border:1px solid rgba(242,92,92,.25);border-radius:var(--rsm);color:var(--red);font-family:inherit;font-size:.85rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;justify-content:center}.btn-lo:hover{background:var(--red-bg)}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:190;backdrop-filter:blur(2px)}.overlay.show{display:block}
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;gap:16px}
+.menu-toggle{display:none;background:none;border:none;color:var(--text2);font-size:1.3rem;cursor:pointer;padding:6px;border-radius:6px;line-height:1}.menu-toggle:hover{color:var(--text)}
+.tb-title{font-size:1rem;font-weight:700;flex:1}
+.adm-topbar{font-size:.72rem;font-weight:700;padding:4px 12px;background:var(--purple-bg);border:1px solid rgba(167,139,250,.25);border-radius:100px;color:var(--purple)}
+.page{display:none;padding:24px;animation:fadeIn .25s ease}.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;border-top:3px solid transparent;transition:transform .2s}.sc:hover{transform:translateY(-2px)}
+.sc.tot{border-top-color:var(--purple)}.sc.ati{border-top-color:var(--green)}.sc.pen{border-top-color:var(--yellow)}.sc.vec{border-top-color:var(--red)}.sc.blo{border-top-color:var(--text3)}
+.sc-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);margin-bottom:8px}
+.sc-val{font-family:'Space Mono',monospace;font-size:1.8rem;font-weight:700;line-height:1}
+.sc.tot .sc-val{color:var(--purple)}.sc.ati .sc-val{color:var(--green)}.sc.pen .sc-val{color:var(--yellow)}.sc.vec .sc-val{color:var(--red)}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.fi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-family:inherit;font-size:.85rem;padding:9px 13px;outline:none;transition:border-color .2s}.fi:focus{border-color:var(--purple)}.fi.stretch{flex:1;min-width:180px}
+.btn-clr{background:transparent;border:1px solid var(--border);border-radius:var(--rsm);color:var(--text2);font-family:inherit;font-size:.82rem;padding:9px 14px;cursor:pointer;white-space:nowrap;transition:all .2s}.btn-clr:hover{border-color:var(--red);color:var(--red)}
+
+/* TABLE */
+.tw{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:820px}
+thead{background:var(--bg3);border-bottom:1px solid var(--border)}
+th{padding:12px 16px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);text-align:left;white-space:nowrap}
+td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:.85rem}
+tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:rgba(255,255,255,.02)}
+.cm{font-family:'Space Mono',monospace;font-size:.75rem;color:var(--text2)}
+.uc{display:flex;align-items:center;gap:10px}
+.av{width:32px;height:32px;background:linear-gradient(135deg,#7c3aed,var(--accent));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;color:#fff;flex-shrink:0;font-family:'Space Mono',monospace}
+.un{font-weight:600;font-size:.88rem}.ue{font-size:.73rem;color:var(--text3);font-family:'Space Mono',monospace}.uobs{font-size:.7rem;color:var(--text3);font-style:italic;margin-top:1px}
+.pb{font-size:.68rem;font-weight:700;padding:2px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.05em}
+.pb.pro{background:var(--purple-bg);color:var(--purple);border:1px solid rgba(167,139,250,.25)}.pb.basico{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.sb{font-size:.68rem;padding:3px 9px;border-radius:100px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.sb-ativo{background:var(--green-bg);color:var(--green)}.sb-pendente{background:var(--yellow-bg);color:var(--yellow)}.sb-vencido,.sb-bloqueado{background:var(--red-bg);color:var(--red)}
+.abs{display:flex;align-items:center;gap:5px;justify-content:center;flex-wrap:wrap}
+.ab{padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:transparent;font-size:.7rem;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s;color:var(--text2)}
+.ab.ativar{border-color:rgba(34,208,122,.3);color:var(--green)}.ab.ativar:hover{background:var(--green-bg)}
+.ab.pend:hover{background:var(--yellow-bg);color:var(--yellow);border-color:rgba(245,200,66,.3)}
+.ab.vec:hover,.ab.blo:hover{background:var(--red-bg);color:var(--red);border-color:rgba(242,92,92,.3)}
+.ab.edit:hover{background:var(--blue-bg);color:var(--accent);border-color:rgba(79,142,247,.3)}
+.ab.del:hover{background:var(--red-bg);color:var(--red);border-color:rgba(242,92,92,.3)}
+.empty{text-align:center;padding:50px;color:var(--text3)}
+
+/* OVERVIEW */
+.sec-title{font-size:1.05rem;font-weight:700;margin-bottom:16px}
+.ov-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:4px}
+.ovc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.ov-title{font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);margin-bottom:14px}
+.br{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bl{font-size:.78rem;color:var(--text2);min-width:72px;flex-shrink:0}
+.bt{flex:1;height:6px;background:var(--bg3);border-radius:100px;overflow:hidden}
+.bf{height:100%;border-radius:100px;transition:width .5s}
+.bf.g{background:var(--green)}.bf.y{background:var(--yellow)}.bf.r{background:var(--red)}.bf.gray{background:var(--text3)}
+.bv{font-family:'Space Mono',monospace;font-size:.72rem;color:var(--text2);min-width:52px;text-align:right}
+.bv small{color:var(--text3);font-size:.65rem}
+.ar{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}.ar:last-child{border-bottom:none}
+
+/* MODAL */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px}.modal-backdrop.show{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:480px;max-height:90vh;display:flex;flex-direction:column;animation:ci .25s ease;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border)}.mh h3{font-size:1rem;font-weight:700}
+.mc-btn{background:none;border:none;color:var(--text2);font-size:1rem;cursor:pointer;padding:4px 8px;border-radius:4px}.mc-btn:hover{color:var(--red)}
+.mb{padding:24px;overflow-y:auto;flex:1}.mf{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.fg{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}.fg label{font-size:.78rem;font-weight:600;color:var(--text2)}
+.fg select,.fg input,.fg textarea{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-family:inherit;font-size:.88rem;padding:10px 13px;outline:none;transition:border-color .2s;width:100%}
+.fg select:focus,.fg input:focus,.fg textarea:focus{border-color:var(--purple)}.fg textarea{resize:vertical}.fg select option{background:var(--bg2)}
+input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5);cursor:pointer}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:var(--rsm);padding:10px 20px;font-family:inherit;font-size:.88rem;cursor:pointer;transition:all .2s}.btn-ghost:hover{border-color:var(--text2);color:var(--text)}
+.btn-save{background:#7c3aed;color:#fff;border:none;border-radius:var(--rsm);padding:10px 20px;font-family:inherit;font-size:.88rem;font-weight:700;cursor:pointer}.btn-save:hover{background:#6d28d9}
+.btn-danger{background:var(--red);color:#fff;border:none;border-radius:var(--rsm);padding:10px 20px;font-family:inherit;font-size:.88rem;font-weight:700;cursor:pointer}.btn-danger:hover{background:#d94444}
+.u-preview{display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);padding:12px 16px;margin-bottom:12px}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 20px;font-size:.88rem;font-weight:500;color:var(--text);z-index:1000;opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.5);max-width:300px}
+.toast.show{opacity:1;transform:none}.toast.success{border-color:var(--green);color:var(--green)}.toast.error{border-color:var(--red);color:var(--red)}.toast.info{border-color:var(--accent);color:var(--accent)}
+
+/* RESPONSIVE */
+@media(max-width:1100px){.stats-grid{grid-template-columns:repeat(3,1fr)}.ov-grid{grid-template-columns:1fr}}
+@media(max-width:768px){:root{--sw:0px}.sidebar{width:260px;transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.sb-close{display:block}.main{margin-left:0}.menu-toggle{display:block}.topbar{padding:0 16px}.page{padding:16px}.stats-grid{grid-template-columns:repeat(2,1fr);gap:10px}}
+@media(max-width:480px){.stats-grid{grid-template-columns:repeat(2,1fr)}.login-card{padding:32px 20px;margin:16px}}
+</style>
+</head>
+<body>
+
+<!-- ======= SCREEN: LOGIN ======= -->
+<div class="screen active" id="s-login">
+  <div class="auth-bg"><div class="bg-grid"></div><div class="bg-glow"></div></div>
+  <div class="login-card">
+    <div class="login-icon">⬡</div>
+    <div class="brand"><span class="brand-icon">◈</span>Finance<strong>Flow</strong></div>
+    <h2 class="login-title">Painel Administrativo</h2>
+    <p class="login-sub">Acesso restrito — somente administradores</p>
+    <div class="alert" id="loginAlert"></div>
+    <div class="field">
+      <label>E-mail do administrador</label>
+      <div class="iw"><span class="ii">✉</span><input type="email" id="loginEmail" placeholder="admin@financeflow.com" autocomplete="username"/></div>
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <div class="iw"><span class="ii">⬡</span><input type="password" id="loginSenha" placeholder="••••••••" autocomplete="current-password"/><button class="eye" id="toggleSenha">👁</button></div>
+    </div>
+    <button class="btn-p" id="btnLogin">
+      <span id="btnTxt">Entrar no painel</span><span class="spin" id="spin"></span>
+    </button>
+    
+    
+    </div>
+    <div class="back-link"><a href="index.html">← Voltar ao sistema</a>
+  </div>
+</div>
+
+<!-- ======= SCREEN: PAINEL ======= -->
+<div class="screen" id="s-panel">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-hd">
+      <div class="brand"><span class="brand-icon" style="color:var(--purple)">◈</span>Finance<strong style="color:var(--purple)">Flow</strong></div>
+      <button class="sb-close" id="sbClose">✕</button>
+    </div>
+    <div class="adm-badge">⬡ Painel Admin</div>
+    <nav class="sb-nav">
+      <a class="nav-item active" data-page="usuarios"><span class="nav-icon">◉</span> Usuários</a>
+      <a class="nav-item" data-page="estatisticas"><span class="nav-icon">▦</span> Estatísticas</a>
+    </nav>
+    <div class="sb-ft">
+      <a href="index.html" class="btn-exp" target="_blank"></a><span>↗</span> Ver app público</a>
+      <button class="btn-lo" id="btnLogout"><span>↩</span> Sair do painel</button>
+    </div>
+  </aside>
+  <div class="overlay" id="overlay"></div>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle">☰</button>
+      <div class="tb-title" id="tbTitle">Gerenciar Usuários</div>
+      <div class="adm-topbar">⬡ Admin</div>
+    </header>
+
+    <!-- PAGE: usuários -->
+    <div class="page active" id="page-usuarios">
+      <div class="stats-grid" id="sg1"></div>
+      <div class="toolbar">
+        <input type="text" class="fi stretch" id="searchUser" placeholder="🔍 Buscar por nome ou e-mail..."/>
+        <select class="fi" id="filterStatus">
+          <option value="">Todos os status</option>
+          <option value="ativo">Ativo</option><option value="pendente">Pendente</option>
+          <option value="vencido">Vencido</option><option value="bloqueado">Bloqueado</option>
+        </select>
+        <select class="fi" id="filterPlano">
+          <option value="">Todos os planos</option>
+          <option value="basico">Básico</option><option value="pro">Pro</option>
+        </select>
+        <button class="btn-clr" id="clearFilters">✕ Limpar</button>
+      </div>
+      <div class="tw">
+        <table><thead><tr>
+          <th>Usuário</th><th>Plano</th><th>Status</th>
+          <th>Cadastro</th><th>Expiração</th><th>Último acesso</th>
+          <th style="text-align:center">Ações</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody></table>
+        <div class="empty" id="emptyRow" style="display:none"><div style="font-size:2rem;margin-bottom:8px">◉</div>Nenhum usuário encontrado.</div>
+      </div>
+    </div>
+
+    <!-- PAGE: estatísticas -->
+    <div class="page" id="page-estatisticas">
+      <h2 class="sec-title">Visão Geral</h2>
+      <div class="stats-grid" id="sg2"></div>
+      <div class="ov-grid">
+        <div class="ovc"><div class="ov-title">Status de pagamento</div><div id="statusBars"></div></div>
+        <div class="ovc"><div class="ov-title">Distribuição por plano</div><div id="planoBars"></div></div>
+        <div class="ovc"><div class="ov-title">Acessos recentes</div><div id="recentAct"></div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal editar -->
+<div class="modal-backdrop" id="mEdit">
+  <div class="modal">
+    <div class="mh"><h3>Editar Usuário</h3><button class="mc-btn" id="mEditClose">✕</button></div>
+    <div class="mb">
+      <div class="u-preview" id="editPreview"></div>
+      <div class="fg"><label>Status de Pagamento</label>
+        <select id="editStatus"><option value="ativo">✓ Ativo</option><option value="pendente">◌ Pendente</option><option value="vencido">⊘ Vencido</option><option value="bloqueado">✕ Bloqueado</option></select></div>
+      <div class="fg"><label>Plano</label><select id="editPlano"><option value="basico">Básico</option><option value="pro">Pro</option></select></div>
+      <div class="fg"><label>Data de Expiração</label><input type="date" id="editExp"/></div>
+      <div class="fg"><label>Observação (interna)</label><textarea id="editObs" rows="2" placeholder="Notas sobre este usuário..."></textarea></div>
+    </div>
+    <div class="mf"><button class="btn-ghost" id="mEditCancel">Cancelar</button><button class="btn-save" id="mEditSave">Salvar Alterações</button></div>
+  </div>
+</div>
+
+<!-- Modal excluir -->
+<div class="modal-backdrop" id="mDel">
+  <div class="modal" style="max-width:400px">
+    <div class="mh"><h3>Excluir Usuário</h3><button class="mc-btn" id="mDelClose">✕</button></div>
+    <div class="mb"><p style="color:var(--text2);font-size:.9rem;line-height:1.7">Excluir <strong id="delName" style="color:var(--text)"></strong>?<br/><span style="color:var(--red);font-size:.82rem">⚠ Todos os dados financeiros serão apagados permanentemente.</span></p></div>
+    <div class="mf"><button class="btn-ghost" id="mDelCancel">Cancelar</button><button class="btn-danger" id="mDelConfirm">Excluir permanentemente</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+const SUPABASE_URL = "https://rmbpszxzvobbnabctwgi.supabase.co";
+
+const SUPABASE_ANON_KEY = "sb_publishable_hT3CdZhg8HbhwTyRaSbDPg_og_GMR8N";
+
+const sb = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
+</script>
+<script>
+'use strict';
+// ── AUTH CORE ──────────────────────────────────────────────
+const SK={U:'ff_users',S:'ff_session',A:'ff_admin_session'};
+const PS={A:'ativo',V:'vencido',B:'bloqueado',P:'pendente'};
+function _h(s){let h=5381;for(let i=0;i<s.length;i++){h=((h<<5)+h)^s.charCodeAt(i);h=h>>>0}return 'ffh_'+h.toString(16).padStart(8,'0')}
+
+  const DB={
+  getU(){try{return JSON.parse(localStorage.getItem(SK.U)||'[]')}catch{return[]}},
+  setU(u){localStorage.setItem(SK.U,JSON.stringify(u))},
+  find(id){return this.getU().find(u=>u.id===id)},
+  upd(id,f){this.setU(this.getU().map(u=>u.id===id?{...u,...f}:u))},
+  del(id){this.setU(this.getU().filter(u=>u.id!==id));localStorage.removeItem('ff_finance_'+id)},
+  getA(){try{return JSON.parse(localStorage.getItem(SK.A)||'null')}catch{return null}},
+  setA(s){localStorage.setItem(SK.A,JSON.stringify(s))},
+  clrA(){localStorage.removeItem(SK.A)},
+  getSess(){try{return JSON.parse(localStorage.getItem(SK.S)||'null')}catch{return null}},
+  clrSess(){localStorage.removeItem(SK.S)},
+};
+
+const Admin={
+  async list(){
+    const { data, error } = await sb
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if(error || !data) return [];
+
+    return data.map(u => ({
+      id: u.id,
+      nome: u.nome || 'Sem nome',
+      email: u.email || '',
+      statusPagamento: !u.ativo ? 'bloqueado' : (u.pagamento_ok ? 'ativo' : 'pendente'),
+      dataCadastro: u.created_at,
+      dataExpiracao: null,
+      ultimoAcesso: null,
+      plano: 'basico',
+      observacao: u.ativo ? '' : 'Inativo',
+      ativo: u.ativo,
+      pagamento_ok: u.pagamento_ok,
+      is_admin: u.is_admin
+    }));
+  },
+
+  async setSt(id, st){
+    let payload = {};
+
+    if(st === 'ativo'){
+      payload = { ativo: true, pagamento_ok: true };
+    } else if(st === 'pendente'){
+      payload = { ativo: true, pagamento_ok: false };
+    } else if(st === 'vencido'){
+      payload = { ativo: true, pagamento_ok: false };
+    } else if(st === 'bloqueado'){
+      payload = { ativo: false, pagamento_ok: false };
+    }
+
+    const { error } = await sb
+      .from('profiles')
+      .update(payload)
+      .eq('id', id);
+
+    return { ok: !error, error };
+  },
+
+  async upd(id, f){
+    const payload = {};
+
+    if(typeof f.ativo !== 'undefined') payload.ativo = f.ativo;
+    if(typeof f.pagamento_ok !== 'undefined') payload.pagamento_ok = f.pagamento_ok;
+
+    const { error } = await sb
+      .from('profiles')
+      .update(payload)
+      .eq('id', id);
+
+    return { ok: !error, error };
+  },
+
+  async del(id){
+    const { error } = await sb
+      .from('profiles')
+      .delete()
+      .eq('id', id);
+
+    return { ok: !error, error };
+  },
+
+  async stats(){
+    const users = await this.list();
+
+    return {
+      tot: users.length,
+      ati: users.filter(x => x.statusPagamento === 'ativo').length,
+      pen: users.filter(x => x.statusPagamento === 'pendente').length,
+      vec: users.filter(x => x.statusPagamento === 'vencido').length,
+      blo: users.filter(x => x.statusPagamento === 'bloqueado').length
+    };
+  },
+};
+
+// ── UI HELPERS ─────────────────────────────────────────────
+function fd(iso){if(!iso)return'—';return new Date(iso).toLocaleDateString('pt-BR')}
+function fdt(iso){if(!iso)return'—';const d=new Date(iso);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+function isExp(iso){return iso&&new Date(iso)<new Date()}
+function ini(n){const p=(n||'?').trim().split(' ');return p.length>=2?(p[0][0]+p[p.length-1][0]).toUpperCase():p[0].slice(0,2).toUpperCase()}
+let _tt;
+function toast(m,t='success'){const el=document.getElementById('toast');el.textContent=m;el.className='toast show '+t;clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3000)}
+
+// ── SCREENS ────────────────────────────────────────────────
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function initLogin(){showScreen('s-login')}
+function initPanel(){showScreen('s-panel');renderStats('sg1');renderUsers()}
+
+// ── LOGIN ──────────────────────────────────────────────────
+function setAlert(m,t){const el=document.getElementById('loginAlert');el.textContent=m;el.className='alert '+t;el.style.display=m?'block':'none'}
+function setLoad(on){document.getElementById('btnTxt').style.display=on?'none':'inline';document.getElementById('spin').style.display=on?'inline-block':'none';document.getElementById('btnLogin').disabled=on}
+async function doLogin() {
+  const e = document.getElementById('loginEmail').value.trim();
+  const s = document.getElementById('loginSenha').value;
+
+  setAlert('', '');
+
+  if (!e || !s) {
+    setAlert('Preencha e-mail e senha.', 'error');
+    return;
+  }
+
+  setLoad(true);
+
+  const { data, error } = await sb.auth.signInWithPassword({
+    email: e,
+    password: s
+  });
+
+  if (error || !data?.user) {
+    setLoad(false);
+    setAlert('Credenciais inválidas.', 'error');
+    return;
+  }
+
+  const user = data.user;
+
+  const { data: profile, error: profileError } = await sb
+    .from('profiles')
+    .select('is_admin, ativo, pagamento_ok')
+    .eq('id', user.id)
+    .single();
+
+  setLoad(false);
+
+  if (profileError || !profile || !profile.is_admin || !profile.ativo || !profile.pagamento_ok) {
+    await sb.auth.signOut();
+    setAlert('Acesso negado.', 'error');
+    return;
+  }
+
+  setAlert('Acesso permitido!', 'success');
+  setTimeout(initPanel, 500);
+}
+document.getElementById('toggleSenha').addEventListener('click',()=>{
+  const i=document.getElementById('loginSenha');i.type=i.type==='password'?'text':'password';
+  document.getElementById('toggleSenha').textContent=i.type==='password'?'👁':'🙈';
+});
+
+document.getElementById('btnLogin').addEventListener('click',doLogin);
+['loginEmail','loginSenha'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()}));
+
+// ── PANEL ──────────────────────────────────────────────────
+async function renderStats(id){
+  const { data, error } = await sb
+    .from('profiles')
+    .select('*');
+
+  if (error || !data) return;
+
+  const total = data.length;
+  const ativos = data.filter(u => u.ativo && u.pagamento_ok).length;
+  const pendentes = data.filter(u => u.ativo && !u.pagamento_ok).length;
+  const vencidos = 0;
+  const bloqueados = data.filter(u => !u.ativo).length;
+
+  const el=document.getElementById(id);
+  if(!el)return;
+
+  el.innerHTML=`
+    <div class="sc tot"><div class="sc-label">Total</div><div class="sc-val">${total}</div></div>
+    <div class="sc ati"><div class="sc-label">Ativos</div><div class="sc-val">${ativos}</div></div>
+    <div class="sc pen"><div class="sc-label">Pendentes</div><div class="sc-val">${pendentes}</div></div>
+    <div class="sc vec"><div class="sc-label">Vencidos</div><div class="sc-val">${vencidos}</div></div>
+    <div class="sc blo"><div class="sc-label">Bloqueados</div><div class="sc-val">${bloqueados}</div></div>
+  `;
+}
+
+async function renderUsers(){
+  const srch=document.getElementById('searchUser').value.toLowerCase();
+  const st=document.getElementById('filterStatus').value,pl=document.getElementById('filterPlano').value;
+  const ord={pendente:0,ativo:1,vencido:2,bloqueado:3};
+
+  let users = await sb
+    .from('profiles')
+    .select('*');
+
+  const tbody=document.getElementById('tbody'),empty=document.getElementById('emptyRow');
+
+  if (users.error || !users.data) {
+    tbody.innerHTML='';
+    empty.style.display='block';
+    return;
+  }
+
+let lista = users.data.map(u => ({
+  id: u.id,
+  nome: u.nome || 'Sem nome',
+  email: u.email || '',
+  statusPagamento: !u.ativo ? 'bloqueado' : (u.pagamento_ok ? 'ativo' : 'pendente'),
+  dataCadastro: u.created_at,
+  dataExpiracao: null,
+  ultimoAcesso: null,
+  plano: 'basico',
+  observacao: u.ativo ? '' : 'Inativo',
+  ativo: u.ativo,
+  pagamento_ok: u.pagamento_ok
+}));
+
+  lista = lista.filter(u=>{
+    if(srch&&!u.nome.toLowerCase().includes(srch)&&!u.email.toLowerCase().includes(srch))return false;
+    if(st&&u.statusPagamento!==st)return false;
+    if(pl&&u.plano!==pl)return false;
+    return true;
+  }).sort((a,b)=>ord[a.statusPagamento]-ord[b.statusPagamento]||(new Date(b.dataCadastro)-new Date(a.dataCadastro)));
+
+  if(!lista.length){tbody.innerHTML='';empty.style.display='block';return}
+  empty.style.display='none';
+
+  tbody.innerHTML=lista.map(u=>{
+    const et=u.dataExpiracao?(isExp(u.dataExpiracao)?`<span style="color:var(--red)">${fd(u.dataExpiracao)}</span>`:fd(u.dataExpiracao)):'—';
+    return `<tr><td><div class="uc"><div class="av">${ini(u.nome)}</div><div><div class="un">${u.nome}</div><div class="ue">${u.email}</div>${u.observacao?`<div class="uobs">${u.observacao}</div>`:''}</div></div></td><td><span class="pb ${u.plano}">${u.plano}</span></td><td><span class="sb sb-${u.statusPagamento}">${u.statusPagamento}</span></td><td class="cm">${fd(u.dataCadastro)}</td><td class="cm">${et}</td><td class="cm">${u.ultimoAcesso?fd(u.ultimoAcesso):'—'}</td><td><div class="abs"><button class="ab edit" onclick="openEdit('${u.id}')">✎</button><button class="ab del" onclick="openDel('${u.id}')">🗑</button></div></td></tr>`;
+  }).join('');
+
+  renderStats('sg1');
+}
+
+async function qs(id,st){
+  if(st!=='ativo' && !confirm(`Alterar status do usuário para "${st}"?`)) return;
+
+  let payload = {};
+
+  if(st === 'ativo'){
+    payload = { ativo: true, pagamento_ok: true };
+  } else if(st === 'pendente'){
+    payload = { ativo: true, pagamento_ok: false };
+  } else if(st === 'bloqueado'){
+    payload = { ativo: false, pagamento_ok: false };
+  }
+
+  const { error } = await sb
+    .from('profiles')
+    .update(payload)
+    .eq('id', id);
+
+  if(error){
+    toast('Erro ao atualizar usuário.','error');
+    return;
+  }
+
+  toast('Status atualizado!','success');
+  await renderUsers();
+}
+
+// modal editar
+let eId=null;
+async function openEdit(id){
+
+  const users = await Admin.list();
+
+  const u = users.find(x => x.id === id);
+
+  if(!u) return;
+
+  eId = id;
+
+  document.getElementById('editPreview').innerHTML = `
+    <div class="av" style="width:40px;height:40px;font-size:.85rem">
+      ${ini(u.nome)}
+    </div>
+    <div>
+      <div style="font-weight:700">
+        ${u.nome}
+      </div>
+      <div style="font-size:.78rem;color:var(--text3)">
+        ${u.email}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('editStatus').value = u.statusPagamento;
+
+  document.getElementById('editPlano').value =
+    u.plano || 'basico';
+
+  document.getElementById('editExp').value =
+    u.dataExpiracao
+      ? u.dataExpiracao.slice(0,10)
+      : '';
+
+  document.getElementById('editObs').value =
+    u.observacao || '';
+
+  document.getElementById('mEdit')
+    .classList.add('show');
+
+}
+function closeEdit(){document.getElementById('mEdit').classList.remove('show');eId=null}
+document.getElementById('mEditClose').addEventListener('click',closeEdit);document.getElementById('mEditCancel').addEventListener('click',closeEdit);
+document.getElementById('mEdit').addEventListener('click',e=>{if(e.target===document.getElementById('mEdit'))closeEdit()});
+document.getElementById('mEditSave').addEventListener('click', async ()=>{
+
+  if(!eId) return;
+
+  const st = document.getElementById('editStatus').value;
+
+  let payload = {};
+
+  if(st === 'ativo'){
+    payload = { ativo: true, pagamento_ok: true };
+  } else if(st === 'pendente'){
+    payload = { ativo: true, pagamento_ok: false };
+  } else if(st === 'bloqueado'){
+    payload = { ativo: false, pagamento_ok: false };
+  }
+
+  const { error } = await sb
+    .from('profiles')
+    .update(payload)
+    .eq('id', eId);
+
+  if(error){
+    toast('Erro ao atualizar usuário.','error');
+    return;
+  }
+
+  toast('Usuário atualizado!','success');
+
+  closeEdit();
+
+  await renderUsers();
+
+});
+
+// modal excluir
+let dId=null;
+function openDel(id){const u=Admin.list().find(x=>x.id===id);if(!u)return;dId=id;document.getElementById('delName').textContent=u.nome+' ('+u.email+')';document.getElementById('mDel').classList.add('show')}
+function closeDel(){document.getElementById('mDel').classList.remove('show');dId=null}
+document.getElementById('mDelClose').addEventListener('click',closeDel);document.getElementById('mDelCancel').addEventListener('click',closeDel);
+document.getElementById('mDel').addEventListener('click',e=>{if(e.target===document.getElementById('mDel'))closeDel()});
+document.getElementById('mDelConfirm').addEventListener('click', async ()=>{
+
+  if(!dId) return;
+
+  const { error } = await sb
+    .from('profiles')
+    .delete()
+    .eq('id', dId);
+
+  if(error){
+    toast('Erro ao excluir usuário.','error');
+    return;
+  }
+
+  toast('Usuário excluído.','info');
+
+  closeDel();
+
+  await renderUsers();
+
+});
+
+// filtros
+['searchUser','filterStatus','filterPlano'].forEach(id=>{document.getElementById(id).addEventListener('input',renderUsers);document.getElementById(id).addEventListener('change',renderUsers)});
+document.getElementById('clearFilters').addEventListener('click',()=>{['searchUser','filterStatus','filterPlano'].forEach(id=>document.getElementById(id).value='');renderUsers()});
+
+// navegação
+document.querySelectorAll('[data-page]').forEach(item=>{
+  item.addEventListener('click',e=>{
+    e.preventDefault();const pg=item.dataset.page;
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('[data-page]').forEach(n=>n.classList.remove('active'));
+    document.getElementById('page-'+pg).classList.add('active');item.classList.add('active');
+    document.getElementById('tbTitle').textContent=pg==='usuarios'?'Gerenciar Usuários':'Estatísticas';
+    if(pg==='estatisticas')renderEst();closeSb();
+  });
+});
+
+function renderEst(){
+  renderStats('sg2');const users=Admin.list(),tot=users.length||1;
+  const sc=[{k:'ativo',l:'Ativos',c:'g'},{k:'pendente',l:'Pendentes',c:'y'},{k:'vencido',l:'Vencidos',c:'r'},{k:'bloqueado',l:'Bloqueados',c:'gray'}];
+  document.getElementById('statusBars').innerHTML=sc.map(s=>{const c=users.filter(u=>u.statusPagamento===s.k).length,p=Math.round(c/tot*100);return`<div class="br"><span class="bl">${s.l}</span><div class="bt"><div class="bf ${s.c}" style="width:${p}%"></div></div><span class="bv">${c} <small>(${p}%)</small></span></div>`}).join('');
+  document.getElementById('planoBars').innerHTML=['basico','pro'].map(pl=>{const c=users.filter(u=>u.plano===pl).length,p=Math.round(c/tot*100);return`<div class="br"><span class="bl">${pl.charAt(0).toUpperCase()+pl.slice(1)}</span><div class="bt"><div class="bf g" style="width:${p}%"></div></div><span class="bv">${c} <small>(${p}%)</small></span></div>`}).join('');
+  const recent=[...users].filter(u=>u.ultimoAcesso).sort((a,b)=>new Date(b.ultimoAcesso)-new Date(a.ultimoAcesso)).slice(0,5);
+  document.getElementById('recentAct').innerHTML=recent.length?recent.map(u=>`<div class="ar"><div class="av" style="width:28px;height:28px;font-size:.6rem;flex-shrink:0">${ini(u.nome)}</div><div style="min-width:0;flex:1"><div style="font-size:.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.nome}</div><div style="font-size:.7rem;color:var(--text3)">${fdt(u.ultimoAcesso)}</div></div><span class="sb sb-${u.statusPagamento}" style="flex-shrink:0">${u.statusPagamento}</span></div>`).join(''):'<p style="color:var(--text3);font-size:.85rem">Nenhuma atividade.</p>';
+}
+
+// sidebar
+function openSb(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('show')}
+function closeSb(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show')}
+document.getElementById('menuToggle').addEventListener('click',openSb);document.getElementById('sbClose').addEventListener('click',closeSb);document.getElementById('overlay').addEventListener('click',closeSb);
+document.getElementById('menuToggle').addEventListener('click', openSb);
+document.getElementById('sbClose').addEventListener('click', closeSb);
+document.getElementById('overlay').addEventListener('click', closeSb);
+
+document.getElementById('btnLogout').addEventListener('click', async () => {
+  if (!confirm('Sair do painel?')) return;
+  await sb.auth.signOut();
+  initLogin();
+});
+
+// ── INIT ───────────────────────────────────────────────────
+async function checkAdminSession() {
+  const { data } = await sb.auth.getSession();
+  const session = data.session;
+
+  if (!session) {
+    initLogin();
+    return;
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_admin, ativo, pagamento_ok')
+    .eq('id', session.user.id)
+    .single();
+
+  if (!profile || !profile.is_admin || !profile.ativo || !profile.pagamento_ok) {
+    await sb.auth.signOut();
+    initLogin();
+    return;
+  }
+
+  initPanel();
+}
+
+checkAdminSession();
+</script>
+</body>
+</html>
