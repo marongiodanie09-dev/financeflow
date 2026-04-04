@@ -1078,27 +1078,6 @@ async function doCadastro() {
   }
 // Criar usuário no Supabase
 
-const { data, error } = await sb.auth.signUp({
-  email: email,
-  password: senha,
-  options: {
-    data: {
-      nome: nome
-    }
-  }
-});
-
-if (error) {
-  cadAlert.style.display = 'block';
-  cadAlert.classList.remove('success');
-  cadAlert.classList.add('error');
-
-  cadAlert.textContent =
-    "Erro ao criar conta: " + error.message;
-
-  return;
-}
-
 document.getElementById('cTermos').checked = false;
   const result = await sb.auth.signUp({
     email: email,
@@ -1110,23 +1089,26 @@ document.getElementById('cTermos').checked = false;
     }
   });
 
- if (result.error) {
- cadAlert.textContent = result.error.message;
-    cadAlert.style.display = 'block';
-    return;
-  }
+if (result.error) {
+  cadAlert.textContent = result.error.message;
+  cadAlert.style.display = 'block';
+  return;
+}
 
-  cadAlert.textContent =
+cadAlert.textContent =
 `Conta criada com sucesso! 📩 Enviamos um e-mail de confirmação para ${email}. Verifique sua caixa de entrada e também a pasta de spam.`;
+
 document.getElementById('cNome').value = '';
 document.getElementById('cEmail').value = '';
 document.getElementById('cSenha').value = '';
 document.getElementById('cConf').value = '';
-  cadAlert.style.display = 'block';
+document.getElementById('cTermos').checked = false;
 
-  setTimeout(() => {
-    goTo('s-login');
-  }, 1500);
+cadAlert.style.display = 'block';
+
+setTimeout(() => {
+  goTo('s-login');
+}, 1500);
 
 }
 startApp();
