@@ -661,10 +661,11 @@ async function doLogin(){
     password: s
   });
 
-  if(error || !data?.user){
-    setLoginLoad(false);
-    setLoginAlert('Credenciais inválidas.', 'error');
-    return;
+ if(error || !data?.user){
+  setLoginLoad(false);
+  console.error('Erro real do login:', error);
+  setLoginAlert(error?.message || 'Credenciais inválidas.', 'error');
+  return;
   }
 
   const user = data.user;
