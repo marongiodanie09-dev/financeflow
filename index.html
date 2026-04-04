@@ -579,16 +579,6 @@ const Auth = {
 function _uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
 function validEmail(e){return/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(e).trim())}
 
-const Auth={
-  register({nome,email,senha,confirmar}){
-    if(!nome||nome.trim().length<2)return{ok:false,field:'nome',e:'Nome deve ter pelo menos 2 caracteres.'};
-    if(!validEmail(email))return{ok:false,field:'email',e:'Informe um e-mail válido.'};
-    if(!senha||senha.length<6)return{ok:false,field:'senha',e:'Senha deve ter no mínimo 6 caracteres.'};
-    if(senha!==confirmar)return{ok:false,field:'conf',e:'As senhas não coincidem.'};
-    if(DB2.findEmail(email))return{ok:false,field:'email',e:'Este e-mail já está cadastrado.'};
-    DB2.add({id:_uid(),nome:nome.trim(),email:email.toLowerCase().trim(),senhaHash:_h(senha),statusPagamento:PS.P,dataCadastro:new Date().toISOString(),dataExpiracao:null,dataAtivacao:null,ultimoAcesso:null,plano:'basico',observacao:''});
-    return{ok:true};
-  },
   login(email,senha){
     if(!email||!senha)return{ok:false,e:'Preencha e-mail e senha.'};
     const u=DB2.findEmail(email);
