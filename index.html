@@ -630,7 +630,7 @@ function setLoginLoad(on){
 }
 
 async function doLogin(){
-  const sb = window.sb;
+  const sb = window.supabaseClient;
 
   if (!sb) {
     setLoginAlert('Supabase não conectado.', 'error');
@@ -1122,7 +1122,7 @@ setTimeout(() => {
 }, 1500);
 }
 async function checkSession() {
-  const sb = window.sb;
+const sb = window.supabaseClient;
 
   if (!sb) return;
 
