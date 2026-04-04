@@ -202,17 +202,16 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="month"]::-webk
 </head>
 <body>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 const SUPABASE_URL = "https://rmbpszxzvobbnabctwgi.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_hT3CdZhg8HbhwTyRaSbDPg_og_GMR8N";
+const SUPABASE_ANON_KEY = "sb_publishable_hT3Cdzhg8HbhWTyRaSbDPg_og_GMR8N";
 
-const sb = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY
-);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+window.sb = sb;
 window.supabaseClient = sb;
+
 console.log("Supabase conectado!");
 </script>
 
