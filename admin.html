@@ -600,7 +600,7 @@ if(st === 'ativo'){
   payload.ativo = false;
   payload.pagamento_ok = false;
 }
-
+console.log('Payload enviado para profiles:', payload, 'ID:', eId);
   const { error } = await sb
     .from('profiles')
     .update(payload)
