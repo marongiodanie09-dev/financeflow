@@ -497,16 +497,83 @@ const SK={U:'ff_users',S:'ff_session',A:'ff_admin_session'};
 const PS={A:'ativo',V:'vencido',B:'bloqueado',P:'pendente'};
 function _h(s){let h=5381;for(let i=0;i<s.length;i++){h=((h<<5)+h)^s.charCodeAt(i);h=h>>>0}return'ffh_'+h.toString(16).padStart(8,'0')}
 
-const DB2={
-  getU(){try{return JSON.parse(localStorage.getItem(SK.U)||'[]')}catch{return[]}},
-  setU(u){localStorage.setItem(SK.U,JSON.stringify(u))},
-  findEmail(e){return this.getU().find(u=>u.email.toLowerCase()===e.toLowerCase().trim())},
-  findId(id){return this.getU().find(u=>u.id===id)},
-  add(u){const a=this.getU();a.push(u);this.setU(a)},
-  upd(id,f){this.setU(this.getU().map(u=>u.id===id?{...u,...f}:u))},
-  getSess(){try{return JSON.parse(localStorage.getItem(SK.S)||'null')}catch{return null}},
-  setSess(s){localStorage.setItem(SK.S,JSON.stringify(s))},
-  clrSess(){localStorage.removeItem(SK.S)},
+function _uid(){
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function validEmail(e){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(e).trim());
+}
+
+const Auth = {
+  async logout() {
+    const sb = window.supabaseClient;
+    if (!sb) return;
+    await sb.auth.signOut();
+  },
+
+  async check() {
+    const sb = window.supabaseClient;
+    if (!sb) return { auth: false };
+
+    const { data, error } = await sb.auth.getSession();
+
+    if (error || !data?.session?.user) {
+      return { auth: false };
+    }
+
+    const user = data.session.user;
+
+    const { data: profile, error: profileError } = await sb
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return { auth: false };
+    }
+
+    if (!profile.ativo) {
+      return {
+        auth: true,
+        blocked: true,
+        status: 'bloqueado',
+        user: profile,
+        sess: data.session
+      };
+    }
+
+    if (!profile.pagamento_ok) {
+      return {
+        auth: true,
+        blocked: true,
+        status: 'pendente',
+        user: profile,
+        sess: data.session
+      };
+    }
+
+    return {
+      auth: true,
+      blocked: false,
+      user: {
+        id: profile.id,
+        nome: profile.nome || 'Usuário',
+        email: profile.email,
+        statusPagamento: profile.pagamento_ok ? 'ativo' : 'pendente',
+        pagamento_ok: profile.pagamento_ok,
+        ativo: profile.ativo,
+        is_admin: profile.is_admin || false
+      },
+      sess: data.session
+    };
+  },
+
+  async current() {
+    const result = await this.check();
+    return result.auth && !result.blocked ? result.user : null;
+  }
 };
 
 function _uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
@@ -541,16 +608,6 @@ const Auth={
   current(){const s=DB2.getSess();return s?DB2.findId(s.userId):null},
 };
 
-// Demo users
-(function(){
-  if(DB2.getU().length>0)return;
-  const n=new Date(),e30=new Date();e30.setDate(e30.getDate()+30);
-  DB2.setU([
-    {id:'u1',nome:'João Silva',email:'demo@financeflow.com',senhaHash:_h('Demo@123'),statusPagamento:PS.A,dataCadastro:n.toISOString(),dataExpiracao:e30.toISOString(),dataAtivacao:n.toISOString(),ultimoAcesso:n.toISOString(),plano:'pro',observacao:'Conta demo'},
-    {id:'u2',nome:'Carlos Oliveira',email:'pendente@financeflow.com',senhaHash:_h('Demo@123'),statusPagamento:PS.P,dataCadastro:n.toISOString(),dataExpiracao:null,dataAtivacao:null,ultimoAcesso:null,plano:'basico',observacao:''},
-    {id:'u3',nome:'Maria Santos',email:'vencido@financeflow.com',senhaHash:_h('Demo@123'),statusPagamento:PS.V,dataCadastro:'2024-01-01T00:00:00Z',dataExpiracao:'2024-01-01T00:00:00Z',dataAtivacao:'2023-12-01T00:00:00Z',ultimoAcesso:'2024-01-15T00:00:00Z',plano:'pro',observacao:''},
-  ]);
-})();
 
 // ═══════════════════════════════════════════════════════════
 // FINANCE DATA
@@ -560,11 +617,191 @@ const TYPES=['Boleto','Cartão de Crédito','Cartão de Débito','PIX','Transfer
 let ST={accounts:[],groups:[],income:{},curMonth:'',editId:null};
 let CU=null; // current user
 
-function fKey(){return'ff_finance_'+CU.id}
-function saveST(){localStorage.setItem(fKey(),JSON.stringify({accounts:ST.accounts,groups:ST.groups,income:ST.income}))}
-function loadST(){
-  try{const r=localStorage.getItem(fKey());if(r){const d=JSON.parse(r);ST.accounts=d.accounts||[];ST.groups=d.groups||[];ST.income=d.income||{}}}catch{}
-  ST.accounts=ST.accounts.map(checkLate);
+async function loadST() {
+  const sb = window.supabaseClient;
+  if (!sb || !CU?.id) return;
+
+  const [
+    { data: accountsRows, error: accError },
+    { data: incomeRows, error: incError }
+  ] = await Promise.all([
+    sb
+      .from('accounts')
+      .select('*')
+      .eq('user_id', CU.id)
+      .order('due_date', { ascending: true }),
+    sb
+      .from('monthly_income')
+      .select('*')
+      .eq('user_id', CU.id)
+  ]);
+
+  if (accError) {
+    console.error('Erro ao carregar contas:', accError);
+    toast('Erro ao carregar contas.', 'error');
+    return;
+  }
+
+  if (incError) {
+    console.error('Erro ao carregar renda mensal:', incError);
+    toast('Erro ao carregar renda do mês.', 'error');
+    return;
+  }
+
+  ST.accounts = (accountsRows || []).map(row => ({
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    value: Number(row.value || 0),
+    dueDate: row.due_date,
+    paymentType: row.payment_type,
+    status: row.status,
+    observation: row.observation || '',
+    paidDate: row.paid_date,
+    gid: row.gid,
+    gNum: row.g_num,
+    gTotal: row.g_total
+  })).map(checkLate);
+
+  ST.groups = [];
+
+  ST.income = {};
+  (incomeRows || []).forEach(row => {
+    ST.income[row.ym] = Number(row.amount || 0);
+  });
+}
+
+async function saveIncomeMonth(ym, amount) {
+  const sb = window.supabaseClient;
+  if (!sb || !CU?.id) return;
+
+  const { error } = await sb
+    .from('monthly_income')
+    .upsert(
+      {
+        user_id: CU.id,
+        ym,
+        amount: Number(amount || 0)
+      },
+      { onConflict: 'user_id,ym' }
+    );
+
+  if (error) {
+    console.error('Erro ao salvar renda:', error);
+    toast('Erro ao salvar renda do mês.', 'error');
+  }
+}
+
+async function createAccount(account) {
+  const sb = window.supabaseClient;
+  if (!sb || !CU?.id) return null;
+
+  const payload = {
+    user_id: CU.id,
+    name: account.name,
+    category: account.category,
+    value: Number(account.value || 0),
+    due_date: account.dueDate || null,
+    payment_type: account.paymentType || null,
+    status: account.status || 'pendente',
+    observation: account.observation || '',
+    paid_date: account.paidDate || null,
+    gid: account.gid || null,
+    g_num: account.gNum || null,
+    g_total: account.gTotal || null
+  };
+
+  const { data, error } = await sb
+    .from('accounts')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erro ao criar conta:', error);
+    toast('Erro ao salvar conta.', 'error');
+    return null;
+  }
+
+  return {
+    id: data.id,
+    name: data.name,
+    category: data.category,
+    value: Number(data.value || 0),
+    dueDate: data.due_date,
+    paymentType: data.payment_type,
+    status: data.status,
+    observation: data.observation || '',
+    paidDate: data.paid_date,
+    gid: data.gid,
+    gNum: data.g_num,
+    gTotal: data.g_total
+  };
+}
+
+async function updateAccount(accountId, account) {
+  const sb = window.supabaseClient;
+  if (!sb || !CU?.id) return null;
+
+  const { data, error } = await sb
+    .from('accounts')
+    .update({
+      name: account.name,
+      category: account.category,
+      value: Number(account.value || 0),
+      due_date: account.dueDate || null,
+      payment_type: account.paymentType || null,
+      status: account.status || 'pendente',
+      observation: account.observation || '',
+      paid_date: account.paidDate || null,
+      gid: account.gid || null,
+      g_num: account.gNum || null,
+      g_total: account.gTotal || null
+    })
+    .eq('id', accountId)
+    .eq('user_id', CU.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erro ao atualizar conta:', error);
+    toast('Erro ao atualizar conta.', 'error');
+    return null;
+  }
+
+  return {
+    id: data.id,
+    name: data.name,
+    category: data.category,
+    value: Number(data.value || 0),
+    dueDate: data.due_date,
+    paymentType: data.payment_type,
+    status: data.status,
+    observation: data.observation || '',
+    paidDate: data.paid_date,
+    gid: data.gid,
+    gNum: data.g_num,
+    gTotal: data.g_total
+  };
+}
+
+async function deleteAccount(accountId) {
+  const sb = window.supabaseClient;
+  if (!sb || !CU?.id) return false;
+
+  const { error } = await sb
+    .from('accounts')
+    .delete()
+    .eq('id', accountId)
+    .eq('user_id', CU.id);
+
+  if (error) {
+    console.error('Erro ao excluir conta:', error);
+    toast('Erro ao excluir conta.', 'error');
+    return false;
+  }
+
+  return true;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -593,11 +830,22 @@ function toast(m,t='success'){const el=document.getElementById('toast');el.textC
 // ═══════════════════════════════════════════════════════════
 function goTo(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 
-function startApp(){
-  const r=Auth.check();
-  if(!r.auth){goTo('s-login');return}
-  if(r.blocked){showBlocked(r);return}
-  CU=r.user;goTo('s-dash');initDash();
+async function startApp() {
+  const r = await Auth.check();
+
+  if (!r.auth) {
+    goTo('s-login');
+    return;
+  }
+
+  if (r.blocked) {
+    showBlocked(r);
+    return;
+  }
+
+  CU = r.user;
+  goTo('s-dash');
+  await initDash();
 }
 
 function showBlocked(r){
@@ -731,26 +979,58 @@ document.getElementById('btnLogin').addEventListener('click', doLogin);
 // ═══════════════════════════════════════════════════════════
 // BLOQUEADO
 // ═══════════════════════════════════════════════════════════
-document.getElementById('btnBlSair').addEventListener('click',()=>{Auth.logout();goTo('s-login')});
-document.getElementById('btnContact').addEventListener('click',()=>{window.location.href='mailto:suporte@financeflow.com?subject=Regularizar Assinatura'});
-document.getElementById('btnJaPaguei').addEventListener('click',()=>{
-  const b=document.getElementById('btnJaPaguei');b.disabled=true;b.textContent='⟳ Verificando...';
-  setTimeout(()=>{b.disabled=false;b.textContent='✓ Já regularizei';alert('Em um sistema real, aqui seria feita uma verificação automática.\n\nEntre em contato com o suporte para liberar o acesso.')},2000);
+document.getElementById('btnBlSair')
+.addEventListener('click', async () => {
+  await Auth.logout();
+  goTo('s-login');
 });
+document.getElementById('btnContact').addEventListener('click',()=>{window.location.href='mailto:suporte@financeflow.com?subject=Regularizar Assinatura'});
+document.getElementById('btnJaPaguei')
+.addEventListener('click',()=>{
 
+  const b = document.getElementById('btnJaPaguei');
+
+  b.disabled = true;
+  b.textContent = '⏳ Abrindo Instagram...';
+
+  setTimeout(()=>{
+
+    b.disabled = false;
+    b.textContent = '✔ Já regularizei';
+
+    // abre o Instagram
+    window.location.href =
+  'https://instagram.com/flowfinance';
+
+  },1000);
+
+});
 // ═══════════════════════════════════════════════════════════
 // DASHBOARD — INIT
 // ═══════════════════════════════════════════════════════════
-function initDash(){
-  loadST();populateSelects();
-  document.getElementById('sbAv').textContent=ini(CU.nome);
-  document.getElementById('sbName').textContent=CU.nome;
-  document.getElementById('sbEmail').textContent=CU.email;
-  document.getElementById('tbAv').textContent=ini(CU.nome);
-  document.getElementById('tbAv').title=CU.nome+' — '+CU.email;
+async function initDash(){
+
+  await loadST();
+
+  populateSelects();
+
+  document.getElementById('sbAv').textContent = ini(CU.nome);
+  document.getElementById('sbName').textContent = CU.nome;
+  document.getElementById('sbEmail').textContent = CU.email;
+
+  document.getElementById('tbAv').textContent = ini(CU.nome);
+  document.getElementById('tbAv').title = CU.nome + ' — ' + CU.email;
+
   setMonth(todayYM());
+
+  const currentIncome =
+    ST.income[ST.curMonth] || 0;
+
+  document.getElementById('monthlyIncome').value =
+    currentIncome;
+
   renderDash();
-  if(ST.accounts.length===0){addSample();toast('Bem-vindo, '+CU.nome.split(' ')[0]+'! Dados de exemplo carregados.','info')}
+
 }
 
 function populateSelects(){
@@ -798,7 +1078,12 @@ function setMonth(ym){
 }
 document.getElementById('prevMonth').addEventListener('click',()=>{setMonth(addM(ST.curMonth,-1));renderPage(document.querySelector('.page.active')?.id?.replace('page-',''))});
 document.getElementById('nextMonth').addEventListener('click',()=>{setMonth(addM(ST.curMonth,+1));renderPage(document.querySelector('.page.active')?.id?.replace('page-',''))});
-document.getElementById('monthlyIncome').addEventListener('input',e=>{ST.income[ST.curMonth]=parseFloat(e.target.value)||0;saveST();renderDash()});
+document.getElementById('monthlyIncome').addEventListener('input', async (e) => {
+  const value = parseFloat(e.target.value) || 0;
+  ST.income[ST.curMonth] = value;
+  await saveIncomeMonth(ST.curMonth, value);
+  renderDash();
+});
 
 // ═══════════════════════════════════════════════════════════
 // DASHBOARD RENDER
@@ -877,12 +1162,41 @@ function renderAccList(cid,accs){
   }).join('');
 }
 
-function togglePaid(id){
-  const i=ST.accounts.findIndex(a=>a.id===id);if(i<0)return;
-  const a=ST.accounts[i];
-  if(a.status==='pago'){ST.accounts[i]={...a,status:'pendente',paidDate:null};toast('Marcado como pendente.','info')}
-  else{const d=new Date();const pd=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;ST.accounts[i]={...a,status:'pago',paidDate:pd};toast('Conta paga! ✓','success')}
-  saveST();const ap=document.querySelector('.page.active')?.id?.replace('page-','');if(ap)renderPage(ap);
+async function togglePaid(id){
+  const i = ST.accounts.findIndex(a => a.id === id);
+  if (i < 0) return;
+
+  const a = ST.accounts[i];
+
+  let updated;
+
+  if (a.status === 'pago') {
+    updated = {
+      ...a,
+      status: 'pendente',
+      paidDate: null
+    };
+    toast('Marcado como pendente.', 'info');
+  } else {
+    const d = new Date();
+    const pd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+    updated = {
+      ...a,
+      status: 'pago',
+      paidDate: pd
+    };
+    toast('Conta marcada como paga.', 'success');
+  }
+
+  const saved = await updateAccount(id, updated);
+  if (!saved) return;
+
+  ST.accounts[i] = saved;
+
+  const p = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (p === 'dashboard') renderDash();
+  else if (p) renderPage(p);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -909,28 +1223,101 @@ function closeAccModal(){document.getElementById('mAcc').classList.remove('show'
 document.getElementById('mAccClose').addEventListener('click',closeAccModal);
 document.getElementById('mAccCancel').addEventListener('click',closeAccModal);
 document.getElementById('mAcc').addEventListener('click',e=>{if(e.target===document.getElementById('mAcc'))closeAccModal()});
-document.getElementById('mAccSave').addEventListener('click',()=>{
-  const name=document.getElementById('fName').value.trim(),cat=document.getElementById('fCat').value;
-  const val=parseFloat(document.getElementById('fVal').value),due=document.getElementById('fDue').value;
-  const type=document.getElementById('fType').value,st=document.getElementById('fSt').value;
-  const obs=document.getElementById('fObs').value.trim();
-  if(!name){toast('Informe o nome da conta.','error');return}
-  if(!cat){toast('Selecione uma categoria.','error');return}
-  if(!val||val<=0){toast('Informe um valor válido.','error');return}
-  if(!due){toast('Informe a data de vencimento.','error');return}
-  if(!type){toast('Selecione o tipo de pagamento.','error');return}
-  const data={name,category:cat,value:val,dueDate:due,paymentType:type,status:st,observation:obs};
-  if(ST.editId){
-    const i=ST.accounts.findIndex(a=>a.id===ST.editId);
-    if(i>=0)ST.accounts[i]={...ST.accounts[i],...data,paidDate:st==='pago'?(ST.accounts[i].paidDate||new Date().toISOString().slice(0,10)):null};
-    toast('Conta atualizada!','success');
-  }else{
-    ST.accounts.push({id:_uid(),...data,paidDate:st==='pago'?new Date().toISOString().slice(0,10):null,gid:null,gNum:null,gTotal:null});
-    toast('Conta cadastrada!','success');
+document.getElementById('mAccSave').addEventListener('click', async () => {
+  const name = document.getElementById('fName').value.trim();
+  const cat = document.getElementById('fCat').value;
+  const val = parseFloat(document.getElementById('fVal').value);
+  const due = document.getElementById('fDue').value;
+  const type = document.getElementById('fType').value;
+  const st = document.getElementById('fSt').value;
+  const obs = document.getElementById('fObs').value.trim();
+
+  if (!name) { toast('Informe o nome da conta.', 'error'); return; }
+  if (!cat) { toast('Selecione uma categoria.', 'error'); return; }
+  if (!val || val <= 0) { toast('Informe um valor válido.', 'error'); return; }
+  if (!due) { toast('Informe a data de vencimento.', 'error'); return; }
+  if (!type) { toast('Selecione o tipo de pagamento.', 'error'); return; }
+
+  const data = {
+    name: name,
+    category: cat,
+    value: val,
+    dueDate: due,
+    paymentType: type,
+    status: st,
+    observation: obs
+  };
+
+  if (ST.editId) {
+    const i = ST.accounts.findIndex(a => a.id === ST.editId);
+    if (i < 0) {
+      toast('Conta não encontrada.', 'error');
+      return;
+    }
+
+    const current = ST.accounts[i];
+
+    const updated = {
+      ...current,
+      ...data,
+      paidDate: st === 'pago'
+        ? (current.paidDate || new Date().toISOString().slice(0,10))
+        : null
+    };
+
+    const saved = await updateAccount(ST.editId, updated);
+    if (!saved) return;
+
+    ST.accounts[i] = saved;
+    toast('Conta atualizada!', 'success');
+
+  } else {
+    const created = await createAccount({
+      ...data,
+      paidDate: st === 'pago'
+        ? new Date().toISOString().slice(0,10)
+        : null,
+      gid: null,
+      gNum: null,
+      gTotal: null
+    });
+
+    if (!created) return;
+
+    ST.accounts.push(created);
+    toast('Conta cadastrada!', 'success');
   }
-  saveST();closeAccModal();const ap=document.querySelector('.page.active')?.id?.replace('page-','');if(ap)renderPage(ap);
+
+  closeAccModal();
+
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap) renderPage(ap);
 });
-function delAcc(id){if(!confirm('Excluir esta conta?'))return;ST.accounts=ST.accounts.filter(a=>a.id!==id);saveST();toast('Conta excluída.','info');const ap=document.querySelector('.page.active')?.id?.replace('page-','');if(ap)renderPage(ap)}
+async function delAcc(id){
+
+  if (!confirm('Excluir esta conta?'))
+    return;
+
+  const ok = await deleteAccount(id);
+
+  if (!ok)
+    return;
+
+  ST.accounts =
+    ST.accounts.filter(a => a.id !== id);
+
+  toast('Conta excluída.', 'info');
+
+  const ap =
+    document
+      .querySelector('.page.active')
+      ?.id
+      .replace('page-','');
+
+  if (ap)
+    renderPage(ap);
+
+}
 
 // ═══════════════════════════════════════════════════════════
 // INSTALLMENTS
@@ -948,24 +1335,64 @@ document.getElementById('btnNewInst').addEventListener('click',()=>{
   const[y,m]=ST.curMonth.split('-');document.getElementById('iStart').value=`${y}-${m}`;
   document.getElementById('mInst').classList.add('show');
 });
-document.getElementById('mInstSave').addEventListener('click',()=>{
-  const name=document.getElementById('iName').value.trim();
-  const total=parseFloat(document.getElementById('iTotal').value),cnt=parseInt(document.getElementById('iCount').value);
-  const iv=parseFloat(document.getElementById('iVal').value)||(total/cnt);
-  const start=document.getElementById('iStart').value,cat=document.getElementById('iCat').value;
-  const type=document.getElementById('iType').value;
-  if(!name){toast('Informe o nome.','error');return}
-  if(!total||total<=0){toast('Informe o valor total.','error');return}
-  if(!cnt||cnt<1){toast('Informe o número de parcelas.','error');return}
-  if(!start){toast('Informe o mês inicial.','error');return}
-  if(!cat){toast('Selecione uma categoria.','error');return}
-  const gid=_uid();
-  ST.groups.push({id:gid,name,totalValue:total,installmentCount:cnt,installmentValue:iv,startMonth:start,category:cat,paymentType:type||'Cartão de Crédito'});
-  for(let i=1;i<=cnt;i++){
-    const mo=addM(start,i-1);const[y,m]=mo.split('-');const due=`${y}-${m}-10`;
-    ST.accounts.push({id:_uid(),name:`${name} (${i}/${cnt})`,category:cat,value:iv,dueDate:due,paymentType:type||'Cartão de Crédito',status:checkLate({status:'pendente',dueDate:due}).status,observation:`Parcela ${i} de ${cnt} — Total: ${fmt(total)}`,paidDate:null,gid,gNum:i,gTotal:cnt});
+document.getElementById('mInstSave').addEventListener('click', async () => {
+  const name = document.getElementById('iName').value.trim();
+  const total = parseFloat(document.getElementById('iTotal').value);
+  const cnt = parseInt(document.getElementById('iCount').value);
+  const iv = parseFloat(document.getElementById('iVal').value) || (total / cnt);
+  const start = document.getElementById('iStart').value;
+  const cat = document.getElementById('iCat').value;
+  const type = document.getElementById('iType').value || 'Cartão de Crédito';
+
+  if (!name) { toast('Informe o nome.', 'error'); return; }
+  if (!total || total <= 0) { toast('Informe o valor total.', 'error'); return; }
+  if (!cnt || cnt < 1) { toast('Informe o número de parcelas.', 'error'); return; }
+  if (!start) { toast('Informe o mês inicial.', 'error'); return; }
+  if (!cat) { toast('Selecione uma categoria.', 'error'); return; }
+
+  const gid = _uid();
+
+  ST.groups.push({
+    id: gid,
+    name,
+    totalValue: total,
+    installmentCount: cnt,
+    installmentValue: iv,
+    startMonth: start,
+    category: cat,
+    paymentType: type
+  });
+
+  for (let i = 1; i <= cnt; i++) {
+    const mo = addM(start, i - 1);
+    const [y, m] = mo.split('-');
+    const due = `${y}-${m}-10`;
+
+    const created = await createAccount({
+      name: `${name} (${i}/${cnt})`,
+      category: cat,
+      value: iv,
+      dueDate: due,
+      paymentType: type,
+      status: checkLate({ status: 'pendente', dueDate: due }).status,
+      observation: '',
+      paidDate: null,
+      gid: gid,
+      gNum: i,
+      gTotal: cnt
+    });
+
+    if (created) {
+      ST.accounts.push(created);
+    }
   }
-  saveST();closeInstModal();toast(`${cnt} parcelas criadas!`,'success');renderInstallments();
+
+  closeInstModal();
+  toast(`${cnt} parcelas criadas!`, 'success');
+
+  const ap = document.querySelector('.page.active')?.id?.replace('page-', '');
+  if (ap === 'installments') renderInstallments();
+  else if (ap) renderPage(ap);
 });
 
 function renderInstallments(){
@@ -980,8 +1407,43 @@ function renderInstallments(){
   }).join('');
 }
 function toggleIg(id){document.getElementById('igb-'+id)?.classList.toggle('open');document.getElementById('igt-'+id)?.classList.toggle('open')}
-function delInstGroup(gid){if(!confirm('Excluir este grupo e todas as parcelas?'))return;ST.groups=ST.groups.filter(g=>g.id!==gid);ST.accounts=ST.accounts.filter(a=>a.gid!==gid);saveST();toast('Grupo excluído.','info');renderInstallments()}
-function delInstItem(aid,gid){if(!confirm('Excluir esta parcela?'))return;ST.accounts=ST.accounts.filter(a=>a.id!==aid);if(!ST.accounts.filter(a=>a.gid===gid).length)ST.groups=ST.groups.filter(g=>g.id!==gid);saveST();toast('Parcela excluída.','info');renderInstallments()}
+async function delInstGroup(gid){
+  if (!confirm('Excluir este grupo e todas as parcelas?')) return;
+
+  const items = ST.accounts.filter(a => a.gid === gid);
+
+  for (const item of items) {
+    const ok = await deleteAccount(item.id);
+    if (!ok) return;
+  }
+
+  ST.accounts = ST.accounts.filter(a => a.gid !== gid);
+  ST.groups = ST.groups.filter(g => g.id !== gid);
+
+  toast('Grupo de parcelas excluído.', 'info');
+
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap === 'installments') renderInstallments();
+  else if (ap) renderPage(ap);
+}
+async function delInstItem(aid,gid){
+  if (!confirm('Excluir esta parcela?')) return;
+
+  const ok = await deleteAccount(aid);
+  if (!ok) return;
+
+  ST.accounts = ST.accounts.filter(a => a.id !== aid);
+
+  if (!ST.accounts.filter(a => a.gid === gid).length) {
+    ST.groups = ST.groups.filter(g => g.id !== gid);
+  }
+
+  toast('Parcela excluída.', 'info');
+
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap === 'installments') renderInstallments();
+  else if (ap) renderPage(ap);
+}
 
 // ═══════════════════════════════════════════════════════════
 // CATEGORIES
@@ -1029,21 +1491,6 @@ document.getElementById('dClr').addEventListener('click',()=>{['dSearch','dFStat
 ['aSearch','aFStatus','aFCat','aFType'].forEach(id=>{document.getElementById(id)?.addEventListener('input',renderAccounts);document.getElementById(id)?.addEventListener('change',renderAccounts)});
 document.getElementById('aClr').addEventListener('click',()=>{['aSearch','aFStatus','aFCat','aFType'].forEach(id=>document.getElementById(id).value='');renderAccounts()});
 document.getElementById('btnNewAcc').addEventListener('click',openNewAcc);
-
-// ═══════════════════════════════════════════════════════════
-// SAMPLE DATA
-// ═══════════════════════════════════════════════════════════
-function addSample(){
-  const ym=ST.curMonth;const[y,m]=ym.split('-');const pad=n=>String(n).padStart(2,'0');
-  [{name:'Aluguel',category:'Moradia',value:1800,dueDate:`${y}-${m}-05`,paymentType:'Transferência',status:'pago',observation:'Pago via transferência'},
-   {name:'Internet Fibra',category:'Assinaturas',value:99.9,dueDate:`${y}-${m}-10`,paymentType:'Débito Automático',status:'pago',observation:''},
-   {name:'Mercado',category:'Alimentação',value:650,dueDate:`${y}-${m}-15`,paymentType:'Cartão de Débito',status:'pendente',observation:'Estimativa mensal'},
-   {name:'Plano de Saúde',category:'Saúde',value:320,dueDate:`${y}-${m}-20`,paymentType:'Débito Automático',status:'pendente',observation:''},
-   {name:'Academia',category:'Lazer',value:89.9,dueDate:`${y}-${m}-25`,paymentType:'Cartão de Crédito',status:'pendente',observation:''},
-   {name:'Conta de Luz',category:'Moradia',value:185,dueDate:`${y}-${m}-08`,paymentType:'Boleto',status:'atrasado',observation:'Verificar'}
-  ].forEach(s=>ST.accounts.push({id:_uid(),...s,paidDate:s.status==='pago'?`${y}-${m}-${pad(Math.floor(Math.random()*5)+1)}`:null,gid:null,gNum:null,gTotal:null}));
-  ST.income[ym]=5000;document.getElementById('monthlyIncome').value=5000;saveST();
-}
 
 // ═══════════════════════════════════════════════════════════
 // INIT
