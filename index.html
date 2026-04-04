@@ -206,7 +206,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="month"]::-webk
 const SUPABASE_URL = "https://rmbpszxzvobbnabctwgi.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_..."
 
-const sb = supabase.createClient(
+const sb = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
