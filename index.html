@@ -1078,7 +1078,7 @@ async function doCadastro() {
   }
 // Criar usuário no Supabase
 
-const { data, error } = await supabase.auth.signUp({
+const { data, error } = await sb.auth.signUp({
   email: email,
   password: senha,
   options: {
