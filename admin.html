@@ -274,23 +274,6 @@ const sb = window.supabase.createClient(
 <script>
 'use strict';
 // ── AUTH CORE ──────────────────────────────────────────────
-const SK={U:'ff_users',S:'ff_session',A:'ff_admin_session'};
-const PS={A:'ativo',V:'vencido',B:'bloqueado',P:'pendente'};
-function _h(s){let h=5381;for(let i=0;i<s.length;i++){h=((h<<5)+h)^s.charCodeAt(i);h=h>>>0}return 'ffh_'+h.toString(16).padStart(8,'0')}
-
-  const DB={
-  getU(){try{return JSON.parse(localStorage.getItem(SK.U)||'[]')}catch{return[]}},
-  setU(u){localStorage.setItem(SK.U,JSON.stringify(u))},
-  find(id){return this.getU().find(u=>u.id===id)},
-  upd(id,f){this.setU(this.getU().map(u=>u.id===id?{...u,...f}:u))},
-  del(id){this.setU(this.getU().filter(u=>u.id!==id));localStorage.removeItem('ff_finance_'+id)},
-  getA(){try{return JSON.parse(localStorage.getItem(SK.A)||'null')}catch{return null}},
-  setA(s){localStorage.setItem(SK.A,JSON.stringify(s))},
-  clrA(){localStorage.removeItem(SK.A)},
-  getSess(){try{return JSON.parse(localStorage.getItem(SK.S)||'null')}catch{return null}},
-  clrSess(){localStorage.removeItem(SK.S)},
-};
-
 const Admin={
   async list(){
     const { data, error } = await sb
@@ -597,12 +580,14 @@ document.getElementById('mEditSave').addEventListener('click', async ()=>{
   let payload = {};
 
   if(st === 'ativo'){
-    payload = { ativo: true, pagamento_ok: true };
-  } else if(st === 'pendente'){
-    payload = { ativo: true, pagamento_ok: false };
-  } else if(st === 'bloqueado'){
-    payload = { ativo: false, pagamento_ok: false };
-  }
+  payload = { ativo: true, pagamento_ok: true };
+} else if(st === 'pendente'){
+  payload = { ativo: true, pagamento_ok: false };
+} else if(st === 'vencido'){
+  payload = { ativo: true, pagamento_ok: false };
+} else if(st === 'bloqueado'){
+  payload = { ativo: false, pagamento_ok: false };
+}
 
   const { error } = await sb
     .from('profiles')
@@ -624,7 +609,19 @@ document.getElementById('mEditSave').addEventListener('click', async ()=>{
 
 // modal excluir
 let dId=null;
-function openDel(id){const u=Admin.list().find(x=>x.id===id);if(!u)return;dId=id;document.getElementById('delName').textContent=u.nome+' ('+u.email+')';document.getElementById('mDel').classList.add('show')}
+async function openDel(id){
+  const users = await Admin.list();
+  const u = users.find(x => x.id === id);
+
+  if(!u) return;
+
+  dId = id;
+
+  document.getElementById('delName').textContent =
+    u.nome + ' (' + u.email + ')';
+
+  document.getElementById('mDel').classList.add('show');
+}
 function closeDel(){document.getElementById('mDel').classList.remove('show');dId=null}
 document.getElementById('mDelClose').addEventListener('click',closeDel);document.getElementById('mDelCancel').addEventListener('click',closeDel);
 document.getElementById('mDel').addEventListener('click',e=>{if(e.target===document.getElementById('mDel'))closeDel()});
@@ -656,26 +653,55 @@ document.getElementById('clearFilters').addEventListener('click',()=>{['searchUs
 
 // navegação
 document.querySelectorAll('[data-page]').forEach(item=>{
-  item.addEventListener('click',e=>{
-    e.preventDefault();const pg=item.dataset.page;
-    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('[data-page]').forEach(n=>n.classList.remove('active'));
-    document.getElementById('page-'+pg).classList.add('active');item.classList.add('active');
-    document.getElementById('tbTitle').textContent=pg==='usuarios'?'Gerenciar Usuários':'Estatísticas';
-    if(pg==='estatisticas')renderEst();closeSb();
+  item.addEventListener('click', async e=>{
+    e.preventDefault();
+    const pg=item.dataset.page;
+
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+
+    document.getElementById('page-'+pg).classList.add('active');
+
+    document.getElementById('tbTitle').textContent=
+      pg==='usuarios'?'Gerenciar Usuários':'Estatísticas';
+
+    if(pg==='estatisticas') await renderEst();
+    closeSb();
   });
 });
 
-function renderEst(){
-  renderStats('sg2');
+async function renderEst(){
+  await renderStats('sg2');
 
-const rawUsers = Admin.list();
-const users = Array.isArray(rawUsers) ? rawUsers : [];
-const tot = users.length || 1;
-  const sc=[{k:'ativo',l:'Ativos',c:'g'},{k:'pendente',l:'Pendentes',c:'y'},{k:'vencido',l:'Vencidos',c:'r'},{k:'bloqueado',l:'Bloqueados',c:'gray'}];
-  document.getElementById('statusBars').innerHTML=sc.map(s=>{const c=users.filter(u=>u.statusPagamento===s.k).length,p=Math.round(c/tot*100);return`<div class="br"><span class="bl">${s.l}</span><div class="bt"><div class="bf ${s.c}" style="width:${p}%"></div></div><span class="bv">${c} <small>(${p}%)</small></span></div>`}).join('');
-  document.getElementById('planoBars').innerHTML=['basico','pro'].map(pl=>{const c=users.filter(u=>u.plano===pl).length,p=Math.round(c/tot*100);return`<div class="br"><span class="bl">${pl.charAt(0).toUpperCase()+pl.slice(1)}</span><div class="bt"><div class="bf g" style="width:${p}%"></div></div><span class="bv">${c} <small>(${p}%)</small></span></div>`}).join('');
-  const recent=[...users].filter(u=>u.ultimoAcesso).sort((a,b)=>new Date(b.ultimoAcesso)-new Date(a.ultimoAcesso)).slice(0,5);
-  document.getElementById('recentAct').innerHTML=recent.length?recent.map(u=>`<div class="ar"><div class="av" style="width:28px;height:28px;font-size:.6rem;flex-shrink:0">${ini(u.nome)}</div><div style="min-width:0;flex:1"><div style="font-size:.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.nome}</div><div style="font-size:.7rem;color:var(--text3)">${fdt(u.ultimoAcesso)}</div></div><span class="sb sb-${u.statusPagamento}" style="flex-shrink:0">${u.statusPagamento}</span></div>`).join(''):'<p style="color:var(--text3);font-size:.85rem">Nenhuma atividade.</p>';
+  const users = await Admin.list();
+  const tot = users.length || 1;
+
+  const sc = [
+    {k:'ativo',l:'Ativos',c:'g'},
+    {k:'pendente',l:'Pendentes',c:'y'},
+    {k:'vencido',l:'Vencidos',c:'r'},
+    {k:'bloqueado',l:'Bloqueados',c:'gray'}
+  ];
+
+  document.getElementById('statusBars').innerHTML = sc.map(s=>{
+    const c = users.filter(u => u.statusPagamento === s.k).length;
+    const p = Math.round(c / tot * 100);
+    return `<div class="br"><span class="bl">${s.l}</span><div class="bt"><div class="bf ${s.c}" style="width:${p}%"></div></div><span class="bv">${c} <small>(${p}%)</small></span></div>`;
+  }).join('');
+
+  document.getElementById('planoBars').innerHTML = ['basico','pro'].map(pl=>{
+    const c = users.filter(u => u.plano === pl).length;
+    const p = Math.round(c / tot * 100);
+    return `<div class="br"><span class="bl">${pl.charAt(0).toUpperCase()+pl.slice(1)}</span><div class="bt"><div class="bf g" style="width:${p}%"></div></div><span class="bv">${c} <small>(${p}%)</small></span></div>`;
+  }).join('');
+
+  const recent = [...users]
+    .filter(u => u.ultimoAcesso)
+    .sort((a,b) => new Date(b.ultimoAcesso) - new Date(a.ultimoAcesso))
+    .slice(0,5);
+
+  document.getElementById('recentAct').innerHTML = recent.length
+    ? recent.map(u=>`<div class="ar"><div class="av" style="width:28px;height:28px;font-size:.6rem;flex-shrink:0">${ini(u.nome)}</div><div style="min-width:0;flex:1"><div style="font-size:.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.nome}</div><div style="font-size:.7rem;color:var(--text3)">${fdt(u.ultimoAcesso)}</div></div><span class="sb sb-${u.statusPagamento}" style="flex-shrink:0">${u.statusPagamento}</span></div>`).join('')
+    : '<p style="color:var(--text3);font-size:.85rem">Nenhuma atividade.</p>';
 }
 
 // sidebar
