@@ -579,26 +579,6 @@ const Auth = {
 function _uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
 function validEmail(e){return/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(e).trim())}
 
-  login(email,senha){
-    if(!email||!senha)return{ok:false,e:'Preencha e-mail e senha.'};
-    const u=DB2.findEmail(email);
-    if(!u||u.senhaHash!==_h(senha))return{ok:false,e:'E-mail ou senha incorretos.'};
-    if(u.statusPagamento!==PS.A)return{ok:false,blocked:true,status:u.statusPagamento,user:u};
-    DB2.upd(u.id,{ultimoAcesso:new Date().toISOString()});
-    DB2.setSess({userId:u.id,nome:u.nome,email:u.email,plano:u.plano,loginAt:new Date().toISOString()});
-    return{ok:true,user:u};
-  },
-  logout(){DB2.clrSess()},
-  check(){
-    const s=DB2.getSess();if(!s)return{auth:false};
-    const u=DB2.findId(s.userId);if(!u){DB2.clrSess();return{auth:false}}
-    if(u.statusPagamento!==PS.A)return{auth:true,blocked:true,status:u.statusPagamento,user:u,sess:s};
-    return{auth:true,blocked:false,user:u,sess:s};
-  },
-  current(){const s=DB2.getSess();return s?DB2.findId(s.userId):null},
-};
-
-
 // ═══════════════════════════════════════════════════════════
 // FINANCE DATA
 // ═══════════════════════════════════════════════════════════
