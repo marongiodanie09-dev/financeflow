@@ -1076,7 +1076,30 @@ async function doCadastro() {
     document.getElementById('errCTermos').textContent = 'Aceite os termos.';
     return;
   }
+// Criar usuário no Supabase
 
+const { data, error } = await supabase.auth.signUp({
+  email: email,
+  password: senha,
+  options: {
+    data: {
+      nome: nome
+    }
+  }
+});
+
+if (error) {
+  cadAlert.style.display = 'block';
+  cadAlert.classList.remove('success');
+  cadAlert.classList.add('error');
+
+  cadAlert.textContent =
+    "Erro ao criar conta: " + error.message;
+
+  return;
+}
+
+document.getElementById('cTermos').checked = false;
   const { error } = await sb.auth.signUp({
     email: email,
     password: senha,
@@ -1093,7 +1116,12 @@ async function doCadastro() {
     return;
   }
 
-  cadAlert.textContent = 'Conta criada com sucesso!';
+  cadAlert.textContent =
+`Conta criada com sucesso! 📩 Enviamos um e-mail de confirmação para ${email}. Verifique sua caixa de entrada e também a pasta de spam.`;
+document.getElementById('cNome').value = '';
+document.getElementById('cEmail').value = '';
+document.getElementById('cSenha').value = '';
+document.getElementById('cConf').value = '';
   cadAlert.style.display = 'block';
 
   setTimeout(() => {
