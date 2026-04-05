@@ -746,7 +746,65 @@ document.getElementById('mDelConfirm').addEventListener('click', async ()=>{
   await renderUsers();
 
 });
+async function exportUsersCSV(){
+  const { data, error } = await sb
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
 
+  if(error || !data){
+    toast('Erro ao exportar usuários.','error');
+    return;
+  }
+
+  const rows = data.map(u => ({
+    nome: u.nome || '',
+    email: u.email || '',
+    plano: u.plano || '',
+    status: getStatusReal(u),
+    data_cadastro: u.created_at
+      ? new Date(u.created_at).toLocaleDateString('pt-BR')
+      : '',
+    data_expiracao: u.data_expiracao || '',
+    ultimo_acesso: u.ultimo_acesso
+      ? new Date(u.ultimo_acesso).toLocaleDateString('pt-BR')
+      : '',
+    observacao: u.observacao || ''
+  }));
+
+  if(!rows.length){
+    toast('Nenhum usuário para exportar.','info');
+    return;
+  }
+
+  const header = Object.keys(rows[0]).join(';');
+
+  const body = rows.map(r =>
+    Object.values(r)
+      .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`)
+      .join(';')
+  ).join('\n');
+
+  const csv = '\uFEFF' + header + '\n' + body;
+
+  const blob = new Blob([csv], {
+    type: 'text/csv;charset=utf-8;'
+  });
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'usuarios_financeflow.csv';
+
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(url);
+
+  toast('CSV exportado com sucesso!','success');
+}
 // filtros
 ['searchUser','filterStatus','filterPlano'].forEach(id=>{document.getElementById(id).addEventListener('input',renderUsers);document.getElementById(id).addEventListener('change',renderUsers)});
 document.getElementById('clearFilters').addEventListener('click',()=>{['searchUser','filterStatus','filterPlano'].forEach(id=>document.getElementById(id).value='');renderUsers()});
@@ -811,7 +869,7 @@ document.getElementById('menuToggle').addEventListener('click',openSb);document.
 document.getElementById('menuToggle').addEventListener('click', openSb);
 document.getElementById('sbClose').addEventListener('click', closeSb);
 document.getElementById('overlay').addEventListener('click', closeSb);
-
+document.getElementById('exportUsers').addEventListener('click', exportUsersCSV);
 document.getElementById('btnLogout').addEventListener('click', async () => {
   if (!confirm('Sair do painel?')) return;
   await sb.auth.signOut();
