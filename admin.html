@@ -650,13 +650,25 @@ async function openEdit(id){
   document.getElementById('editObs').value =
     u.observacao || '';
 
-  document.getElementById('mEdit')
-    .classList.add('show');
+const modal = document.getElementById('mEdit');
+modal.style.display = 'flex';
+modal.classList.add('show');
 
 }
-function closeEdit(){document.getElementById('mEdit').classList.remove('show');eId=null}
+function closeEdit() {
+  const modal = document.getElementById('mEdit');
+  modal.classList.remove('show');
+  modal.style.display = 'none';
+  eId = null;
+}
 document.getElementById('mEditClose').addEventListener('click',closeEdit);document.getElementById('mEditCancel').addEventListener('click',closeEdit);
-document.getElementById('mEdit').addEventListener('click',e=>{if(e.target===document.getElementById('mEdit'))closeEdit()});
+const backdrop = document.getElementById('mEdit');
+
+backdrop.addEventListener('click', (e) => {
+  if (e.target === backdrop) {
+    closeEdit();
+  }
+});
 document.getElementById('mEditSave').addEventListener('click', async ()=>{
 
   if(!eId) return;
@@ -738,8 +750,11 @@ async function openDel(id){
   document.getElementById('delName').textContent =
     u.nome + ' (' + u.email + ')';
 
-  document.getElementById('mDel').classList.add('show');
+  const modal = document.getElementById('mEdit');
+modal.style.display = 'flex';
+modal.classList.add('show');
 }
+
 function closeDel(){document.getElementById('mDel').classList.remove('show');dId=null}
 document.getElementById('mDelClose').addEventListener('click',closeDel);document.getElementById('mDelCancel').addEventListener('click',closeDel);
 document.getElementById('mDel').addEventListener('click',e=>{if(e.target===document.getElementById('mDel'))closeDel()});
