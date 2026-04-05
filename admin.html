@@ -180,7 +180,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5);cursor:p
       <a class="nav-item" data-page="estatisticas"><span class="nav-icon">▦</span> Estatísticas</a>
     </nav>
     <div class="sb-ft">
-      <a href="index.html" class="btn-exp" target="_blank"></a><span>↗</span> Ver app público</a>
+     <a href="index.html" class="btn-exp" target="_blank"><span>↗</span> Ver app público</a> 
       <button class="btn-lo" id="btnLogout"><span>↩</span> Sair do painel</button>
     </div>
   </aside>
@@ -283,21 +283,20 @@ const Admin={
 
     if(error || !data) return [];
 
-    return data.map(u => ({
-      id: u.id,
-      nome: u.nome || 'Sem nome',
-      email: u.email || '',
-      statusPagamento: !u.ativo ? 'bloqueado' : (u.pagamento_ok ? 'ativo' : 'pendente'),
-      dataCadastro: u.created_at,
-      dataExpiracao: null,
-      ultimoAcesso: null,
-      plano: 'basico',
-      observacao: u.ativo ? '' : 'Inativo',
-      ativo: u.ativo,
-      pagamento_ok: u.pagamento_ok,
-      is_admin: u.is_admin
-    }));
-  },
+return data.map(u => ({
+  id: u.id,
+  nome: u.nome || 'Sem nome',
+  email: u.email || '',
+  statusPagamento: getStatusReal(u),
+  dataCadastro: u.created_at,
+  dataExpiracao: u.data_expiracao,
+  ultimoAcesso: u.ultimo_acesso,
+  plano: u.plano || 'basico',
+  observacao: u.observacao || '',
+  ativo: u.ativo,
+  pagamento_ok: u.pagamento_ok,
+  is_admin: u.is_admin
+}));
 
   async setSt(id, st){
     let payload = {};
@@ -363,6 +362,24 @@ function isExp(iso){return iso&&new Date(iso)<new Date()}
 function ini(n){const p=(n||'?').trim().split(' ');return p.length>=2?(p[0][0]+p[p.length-1][0]).toUpperCase():p[0].slice(0,2).toUpperCase()}
 let _tt;
 function toast(m,t='success'){const el=document.getElementById('toast');el.textContent=m;el.className='toast show '+t;clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3000)}
+function getStatusReal(u){
+  const agora = new Date();
+  const exp = u.data_expiracao ? new Date(u.data_expiracao + 'T23:59:59') : null;
+
+  if (!u.ativo) return 'bloqueado';
+
+  if (u.status_pagamento === 'bloqueado') return 'bloqueado';
+
+  if (exp && exp < agora) return 'vencido';
+
+  if (u.status_pagamento === 'vencido') return 'vencido';
+  if (u.status_pagamento === 'ativo') return 'ativo';
+  if (u.status_pagamento === 'pendente') return 'pendente';
+
+  if (u.pagamento_ok) return 'ativo';
+
+  return 'pendente';
+}
 
 // ── SCREENS ────────────────────────────────────────────────
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
@@ -431,11 +448,11 @@ async function renderStats(id){
 
   if (error || !data) return;
 
-  const total = data.length;
-  const ativos = data.filter(u => u.ativo && u.pagamento_ok).length;
-  const pendentes = data.filter(u => u.ativo && !u.pagamento_ok).length;
-  const vencidos = 0;
-  const bloqueados = data.filter(u => !u.ativo).length;
+const total = data.length;
+const ativos = data.filter(u => getStatusReal(u) === 'ativo').length;
+const pendentes = data.filter(u => getStatusReal(u) === 'pendente').length;
+const vencidos = data.filter(u => getStatusReal(u) === 'vencido').length;
+const bloqueados = data.filter(u => getStatusReal(u) === 'bloqueado').length;
 
   const el=document.getElementById(id);
   if(!el)return;
@@ -470,12 +487,12 @@ let lista = users.data.map(u => ({
   id: u.id,
   nome: u.nome || 'Sem nome',
   email: u.email || '',
-  statusPagamento: !u.ativo ? 'bloqueado' : (u.pagamento_ok ? 'ativo' : 'pendente'),
+  statusPagamento: getStatusReal(u),
   dataCadastro: u.created_at,
-  dataExpiracao: null,
-  ultimoAcesso: null,
-  plano: 'basico',
-  observacao: u.ativo ? '' : 'Inativo',
+  dataExpiracao: u.data_expiracao,
+  ultimoAcesso: u.ultimo_acesso,
+  plano: u.plano || 'basico',
+  observacao: u.observacao || '',
   ativo: u.ativo,
   pagamento_ok: u.pagamento_ok
 }));
@@ -584,7 +601,8 @@ const obs = document.getElementById('editObs').value.trim();
 let payload = {
   plano: plano,
   observacao: obs,
-  data_expiracao: exp
+  data_expiracao: exp,
+  status_pagamento: st
 };
 
 if(st === 'ativo'){
