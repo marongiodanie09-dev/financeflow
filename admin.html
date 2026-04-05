@@ -283,21 +283,21 @@ const Admin={
 
     if(error || !data) return [];
 
-return data.map(u => ({
-  id: u.id,
-  nome: u.nome || 'Sem nome',
-  email: u.email || '',
-  statusPagamento: getStatusReal(u),
-  dataCadastro: u.created_at,
-  dataExpiracao: u.data_expiracao,
-  ultimoAcesso: u.ultimo_acesso,
-  plano: u.plano || 'basico',
-  observacao: u.observacao || '',
-  ativo: u.ativo,
-  pagamento_ok: u.pagamento_ok,
-  is_admin: u.is_admin
-}));
-},
+    return data.map(u => ({
+      id: u.id,
+      nome: u.nome || 'Sem nome',
+      email: u.email || '',
+      statusPagamento: getStatusReal(u),
+      dataCadastro: u.created_at,
+      dataExpiracao: u.data_expiracao,
+      ultimoAcesso: u.ultimo_acesso,
+      plano: u.plano || 'basico',
+      observacao: u.observacao || '',
+      ativo: u.ativo,
+      pagamento_ok: u.pagamento_ok,
+      is_admin: u.is_admin
+    }));
+  },
 
   async setSt(id, st){
     let payload = {};
