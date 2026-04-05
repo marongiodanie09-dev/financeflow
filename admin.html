@@ -242,6 +242,14 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5);cursor:p
       <div class="fg"><label>Status de Pagamento</label>
         <select id="editStatus"><option value="ativo">✓ Ativo</option><option value="pendente">◌ Pendente</option><option value="vencido">⊘ Vencido</option><option value="bloqueado">✕ Bloqueado</option></select></div>
       <div class="fg"><label>Plano</label><select id="editPlano"><option value="basico">Básico</option><option value="pro">Pro</option></select></div>
+      <div class="fg">
+  <label>Renovação rápida</label>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button type="button" class="btn-ghost" onclick="setRenovacaoRapida(30)">+30 dias</button>
+    <button type="button" class="btn-ghost" onclick="setRenovacaoRapida(90)">+90 dias</button>
+    <button type="button" class="btn-ghost" onclick="setRenovacaoRapida(365)">+365 dias</button>
+  </div>
+</div>
       <div class="fg"><label>Data de Expiração</label><input type="date" id="editExp"/></div>
       <div class="fg"><label>Observação (interna)</label><textarea id="editObs" rows="2" placeholder="Notas sobre este usuário..."></textarea></div>
     </div>
@@ -361,6 +369,27 @@ function fd(iso){if(!iso)return'—';return new Date(iso).toLocaleDateString('pt
 function fdt(iso){if(!iso)return'—';const d=new Date(iso);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
 function isExp(iso){return iso&&new Date(iso)<new Date()}
 function ini(n){const p=(n||'?').trim().split(' ');return p.length>=2?(p[0][0]+p[p.length-1][0]).toUpperCase():p[0].slice(0,2).toUpperCase()}
+function setRenovacaoRapida(dias){
+  const input = document.getElementById('editExp');
+  if(!input) return;
+
+  let base = input.value
+    ? new Date(input.value + 'T00:00:00')
+    : new Date();
+
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+
+  if(base < hoje) base = new Date(hoje);
+
+  base.setDate(base.getDate() + dias);
+
+  const y = base.getFullYear();
+  const m = String(base.getMonth() + 1).padStart(2, '0');
+  const d = String(base.getDate()).padStart(2, '0');
+
+  input.value = `${y}-${m}-${d}`;
+}
 let _tt;
 function toast(m,t='success'){const el=document.getElementById('toast');el.textContent=m;el.className='toast show '+t;clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3000)}
 function getStatusReal(u){
