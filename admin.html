@@ -668,25 +668,43 @@ const exp = document.getElementById('editExp').value || null;
 const obs = document.getElementById('editObs').value.trim();
 
 let payload = {
-  plano: plano,
   observacao: obs,
   data_expiracao: exp,
-  status_pagamento: st
+  status_pagamento: st,
+  acesso_bloqueado: false,
+  bloqueio_automatico: false,
+  bloqueado_em: null
 };
 
-if(st === 'ativo'){
+if (st === 'ativo') {
   payload.ativo = true;
   payload.pagamento_ok = true;
-} else if(st === 'pendente'){
+  payload.acesso_bloqueado = false;
+  payload.bloqueio_automatico = false;
+  payload.bloqueado_em = null;
+
+} else if (st === 'pendente') {
   payload.ativo = true;
   payload.pagamento_ok = false;
-} else if(st === 'vencido'){
+  payload.acesso_bloqueado = true;
+  payload.bloqueio_automatico = false;
+  payload.bloqueado_em = new Date().toISOString();
+
+} else if (st === 'vencido') {
   payload.ativo = true;
   payload.pagamento_ok = false;
-} else if(st === 'bloqueado'){
+  payload.acesso_bloqueado = true;
+  payload.bloqueio_automatico = true;
+  payload.bloqueado_em = new Date().toISOString();
+
+} else if (st === 'bloqueado') {
   payload.ativo = false;
   payload.pagamento_ok = false;
+  payload.acesso_bloqueado = true;
+  payload.bloqueio_automatico = false;
+  payload.bloqueado_em = new Date().toISOString();
 }
+
 console.log('Payload enviado para profiles:', payload, 'ID:', eId);
   const { error } = await sb
     .from('profiles')
