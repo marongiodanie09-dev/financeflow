@@ -390,6 +390,20 @@ function setRenovacaoRapida(dias){
 
   input.value = `${y}-${m}-${d}`;
 }
+function diasRestantes(exp){
+  if(!exp) return null;
+
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+
+  const data = new Date(exp + 'T00:00:00');
+
+  const diff = Math.ceil(
+    (data - hoje) / (1000 * 60 * 60 * 24)
+  );
+
+  return diff;
+}
 let _tt;
 function toast(m,t='success'){const el=document.getElementById('toast');el.textContent=m;el.className='toast show '+t;clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3000)}
 function getStatusReal(u){
@@ -538,7 +552,32 @@ let lista = users.data.map(u => ({
   empty.style.display='none';
 
   tbody.innerHTML=lista.map(u=>{
-    const et=u.dataExpiracao?(isExp(u.dataExpiracao)?`<span style="color:var(--red)">${fd(u.dataExpiracao)}</span>`:fd(u.dataExpiracao)):'—';
+   const dias = diasRestantes(u.dataExpiracao);
+
+const et = u.dataExpiracao
+  ? isExp(u.dataExpiracao)
+    ? `<span style="color:var(--red)">
+        ${fd(u.dataExpiracao)}
+        <br><small>Vencido</small>
+       </span>`
+    : dias === 0
+      ? `<span style="color:var(--yellow)">
+          ${fd(u.dataExpiracao)}
+          <br><small>Vence hoje</small>
+         </span>`
+      : dias === 1
+        ? `<span style="color:var(--yellow)">
+            ${fd(u.dataExpiracao)}
+            <br><small>Vence amanhã</small>
+           </span>`
+        : dias <= 3
+          ? `<span style="color:var(--yellow)">
+              ${fd(u.dataExpiracao)}
+              <br><small>Vence em ${dias} dias</small>
+             </span>`
+          : `${fd(u.dataExpiracao)}
+             <br><small>${dias} dias restantes</small>`
+  : '—';
     return `<tr><td><div class="uc"><div class="av">${ini(u.nome)}</div><div><div class="un">${u.nome}</div><div class="ue">${u.email}</div>${u.observacao?`<div class="uobs">${u.observacao}</div>`:''}</div></div></td><td><span class="pb ${u.plano}">${u.plano}</span></td><td><span class="sb sb-${u.statusPagamento}">${u.statusPagamento}</span></td><td class="cm">${fd(u.dataCadastro)}</td><td class="cm">${et}</td><td class="cm">${u.ultimoAcesso?fd(u.ultimoAcesso):'—'}</td><td><div class="abs"><button class="ab edit" onclick="openEdit('${u.id}')">✎</button><button class="ab del" onclick="openDel('${u.id}')">🗑</button></div></td></tr>`;
   }).join('');
 
