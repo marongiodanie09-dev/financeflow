@@ -471,7 +471,7 @@ async function syncVencidos() {
 // ── SCREENS ────────────────────────────────────────────────
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 function initLogin(){showScreen('s-login')}
-async function initPanel(){showScreen('s-panel');await syncVencidos();renderStats('sg1');renderUsers()}
+async function initPanel(){showScreen('s-panel');await syncVencidos();await renderStats('sg1');await renderUsers()}
 
 // ── LOGIN ──────────────────────────────────────────────────
 function setAlert(m,t){const el=document.getElementById('loginAlert');el.textContent=m;el.className='alert '+t;el.style.display=m?'block':'none'}
@@ -972,7 +972,7 @@ if (!profile || !profile.is_admin || !profile.ativo || !profile.pagamento_ok) {
   return;
 }
 
-  initPanel();
+  await initPanel();
 }
 
 checkAdminSession();
