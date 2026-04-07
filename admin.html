@@ -434,10 +434,41 @@ function getStatusReal(u){
   return 'pendente';
 }
 
+// ── AUTO-SYNC: atualiza status de vencidos no banco ──────
+async function syncVencidos() {
+  const { data, error } = await sb
+    .from('profiles')
+    .select('id, data_expiracao, ativo, pagamento_ok, status_pagamento, acesso_bloqueado, bloqueio_automatico')
+    .eq('ativo', true);
+
+  if (error || !data) return;
+
+  const agora = new Date();
+
+  for (const u of data) {
+    if (!u.data_expiracao) continue;
+
+    const exp = new Date(u.data_expiracao + 'T23:59:59');
+
+    if (exp < agora && u.status_pagamento !== 'vencido') {
+      await sb
+        .from('profiles')
+        .update({
+          status_pagamento: 'vencido',
+          pagamento_ok: false,
+          acesso_bloqueado: true,
+          bloqueio_automatico: true,
+          bloqueado_em: new Date().toISOString()
+        })
+        .eq('id', u.id);
+    }
+  }
+}
+
 // ── SCREENS ────────────────────────────────────────────────
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 function initLogin(){showScreen('s-login')}
-function initPanel(){showScreen('s-panel');renderStats('sg1');renderUsers()}
+async function initPanel(){showScreen('s-panel');await syncVencidos();renderStats('sg1');renderUsers()}
 
 // ── LOGIN ──────────────────────────────────────────────────
 function setAlert(m,t){const el=document.getElementById('loginAlert');el.textContent=m;el.className='alert '+t;el.style.display=m?'block':'none'}
@@ -750,12 +781,12 @@ async function openDel(id){
   document.getElementById('delName').textContent =
     u.nome + ' (' + u.email + ')';
 
-  const modal = document.getElementById('mEdit');
+  const modal = document.getElementById('mDel');
 modal.style.display = 'flex';
 modal.classList.add('show');
 }
 
-function closeDel(){document.getElementById('mDel').classList.remove('show');dId=null}
+function closeDel(){const modal=document.getElementById('mDel');modal.classList.remove('show');modal.style.display='none';dId=null}
 document.getElementById('mDelClose').addEventListener('click',closeDel);document.getElementById('mDelCancel').addEventListener('click',closeDel);
 document.getElementById('mDel').addEventListener('click',e=>{if(e.target===document.getElementById('mDel'))closeDel()});
 document.getElementById('mDelConfirm').addEventListener('click', async ()=>{
@@ -903,7 +934,7 @@ document.getElementById('menuToggle').addEventListener('click', openSb);
 document.getElementById('sbClose').addEventListener('click', closeSb);
 document.getElementById('overlay').addEventListener('click', closeSb);
 document.getElementById('exportUsers').addEventListener('click', exportUsersCSV);
-document.getElementById('btnLogout').addEventListener('click', async () => {
+document.getElementById('logoutBtn').addEventListener('click', async () => {
   if (!confirm('Sair do painel?')) return;
   await sb.auth.signOut();
   initLogin();
