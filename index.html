@@ -836,9 +836,10 @@ async function startApp() {
 function showBlocked(r){
   goTo('s-blocked');
   const msgs={vencido:{badge:'● Assinatura Vencida',title:'Assinatura Vencida',msg:'Seu período de acesso expirou. Renove para continuar usando o FinanceFlow.'},
+    expirado:{badge:'● Assinatura Vencida',title:'Assinatura Vencida',msg:'Seu período de acesso expirou. Renove para continuar usando o FinanceFlow.'},
     bloqueado:{badge:'⊘ Conta Bloqueada',title:'Conta Bloqueada',msg:'Sua conta foi bloqueada. Entre em contato com o suporte.'},
     pendente:{badge:'◌ Pagamento Pendente',title:'Aguardando Pagamento',msg:'Sua conta está pendente de ativação. Após confirmar o pagamento, o administrador irá liberar seu acesso.'}};
-  const info=msgs[r.status]||msgs.vencido;
+  const info=msgs[r?.status]||msgs.vencido;
   document.getElementById('blBadge').textContent=info.badge;
   document.getElementById('blTitle').textContent=info.title;
   document.getElementById('blMsg').textContent=info.msg;
@@ -919,18 +920,25 @@ async function doLogin(){
 
   if(!profile.ativo){
     await sb.auth.signOut();
-    setLoginAlert('Conta inativa.', 'error');
+    showBlocked({ status: 'bloqueado', user: profile });
     return;
   }
 
   if(!profile.pagamento_ok){
     await sb.auth.signOut();
-    if (typeof showBlocked === 'function') {
-      showBlocked();
-    } else {
-      setLoginAlert('Pagamento pendente.', 'error');
-    }
+    showBlocked({ status: 'pendente', user: profile });
     return;
+  }
+
+  // Verificar data de expiração
+  if (profile.data_expiracao) {
+    const hoje = new Date();
+    const vencimento = new Date(profile.data_expiracao + 'T23:59:59');
+    if (hoje > vencimento) {
+      await sb.auth.signOut();
+      showBlocked({ status: 'vencido', user: profile });
+      return;
+    }
   }
 
   setLoginAlert('Login realizado!', 'success');
@@ -1578,8 +1586,26 @@ const sb = window.supabaseClient;
     .single();
 
   if (profileError || !profile) return;
-  if (!profile.ativo) return;
-  if (!profile.pagamento_ok) return;
+
+  if (!profile.ativo) {
+    showBlocked({ status: 'bloqueado', user: profile });
+    return;
+  }
+
+  if (!profile.pagamento_ok) {
+    showBlocked({ status: 'pendente', user: profile });
+    return;
+  }
+
+  // Verificar data de expiração
+  if (profile.data_expiracao) {
+    const hoje = new Date();
+    const vencimento = new Date(profile.data_expiracao + 'T23:59:59');
+    if (hoje > vencimento) {
+      showBlocked({ status: 'vencido', user: profile });
+      return;
+    }
+  }
 
   CU = {
     id: profile.id,
