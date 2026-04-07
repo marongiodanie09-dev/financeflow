@@ -198,6 +198,30 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="month"]::-webk
 @media(max-width:900px){.auth-left{display:none}.auth-right{width:100%;padding:32px 24px}.mobile-brand{display:flex}.auth-card{max-width:420px}}
 @media(max-width:768px){:root{--sw:0px}.sidebar{width:260px;transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.sb-close-btn{display:block}.main{margin-left:0}.menu-toggle{display:block}.topbar{padding:0 16px}.page{padding:16px}.cards-grid{grid-template-columns:repeat(2,1fr);gap:10px}.c-val{font-size:1.1rem}.bal-bar{flex-direction:column;align-items:flex-start;padding:16px}.bal-sep{display:none}.form-grid{grid-template-columns:1fr}.full{grid-column:1}.mlabel{min-width:90px;font-size:.72rem}}
 @media(max-width:480px){.cards-grid{grid-template-columns:1fr 1fr}.acc-card{padding:12px 14px;gap:10px}.auth-right{padding:24px 16px}.blocked-card{padding:40px 24px}.bl-title{font-size:1.6rem}}
+
+/* ── AI CHAT ── */
+.chat-fab{position:fixed;bottom:24px;right:24px;width:56px;height:56px;background:linear-gradient(135deg,#4f8ef7,#22d07a);border:none;border-radius:50%;color:#fff;font-size:1.4rem;cursor:pointer;z-index:400;box-shadow:0 6px 24px rgba(79,142,247,.4);transition:transform .2s,box-shadow .2s;display:flex;align-items:center;justify-content:center}.chat-fab:hover{transform:scale(1.1);box-shadow:0 8px 32px rgba(79,142,247,.5)}.chat-fab.hide{display:none}
+.chat-panel{position:fixed;bottom:24px;right:24px;width:380px;height:520px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;z-index:500;display:none;flex-direction:column;box-shadow:0 16px 64px rgba(0,0,0,.6);animation:chatIn .25s ease;overflow:hidden}
+.chat-panel.open{display:flex}
+@keyframes chatIn{from{opacity:0;transform:translateY(20px) scale(.95)}to{opacity:1;transform:none}}
+.chat-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,rgba(79,142,247,.08),rgba(34,208,122,.05))}
+.chat-hd-left{display:flex;align-items:center;gap:10px}
+.chat-hd-icon{width:32px;height:32px;background:linear-gradient(135deg,#4f8ef7,#22d07a);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;color:#fff;flex-shrink:0}
+.chat-hd-info h4{font-size:.88rem;font-weight:700;margin:0}.chat-hd-info span{font-size:.7rem;color:var(--green);font-weight:600}
+.chat-close{background:none;border:none;color:var(--text3);font-size:1rem;cursor:pointer;padding:4px 8px;border-radius:4px}.chat-close:hover{color:var(--red)}
+.chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.chat-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:.84rem;line-height:1.6;animation:fi .2s}
+.chat-msg.bot{background:var(--bg3);border:1px solid var(--border);color:var(--text);align-self:flex-start;border-top-left-radius:4px}
+.chat-msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-top-right-radius:4px}
+.chat-msg.typing{color:var(--text3);font-style:italic}
+.chat-msg.bot strong{color:var(--accent);font-weight:700}
+.chat-msg.bot em{color:var(--green);font-style:normal;font-weight:600}
+.chat-input-wrap{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--bg)}
+.chat-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-family:inherit;font-size:.85rem;padding:10px 14px;outline:none;resize:none;max-height:80px;transition:border-color .2s}.chat-input:focus{border-color:var(--accent)}
+.chat-send{width:38px;height:38px;background:var(--accent);border:none;border-radius:var(--rsm);color:#fff;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .15s;flex-shrink:0}.chat-send:hover:not(:disabled){background:var(--accent2);transform:translateY(-1px)}.chat-send:disabled{opacity:.5;cursor:not-allowed}
+.chat-suggestions{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px}
+.chat-sug{background:var(--bg3);border:1px solid var(--border);border-radius:100px;padding:6px 12px;font-size:.72rem;color:var(--text2);cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap}.chat-sug:hover{border-color:var(--accent);color:var(--accent);background:var(--blue-bg)}
+@media(max-width:480px){.chat-panel{width:calc(100% - 16px);height:calc(100% - 80px);bottom:8px;right:8px;border-radius:12px}.chat-fab{bottom:16px;right:16px;width:50px;height:50px;font-size:1.2rem}}
 </style>
 </head>
 <body>
@@ -483,6 +507,33 @@ console.log("Supabase conectado!");
       </div>
     </div>
     <div class="mf"><button class="btn-ghost" id="mInstCancel">Cancelar</button><button class="btn-save" id="mInstSave">Criar Parcelas</button></div>
+  </div>
+</div>
+
+<!-- AI Chat -->
+<button class="chat-fab" id="chatFab" title="Assistente IA" style="display:none">🤖</button>
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-hd">
+    <div class="chat-hd-left">
+      <div class="chat-hd-icon">◈</div>
+      <div class="chat-hd-info">
+        <h4>Assistente FinanceFlow</h4>
+        <span>● Online</span>
+      </div>
+    </div>
+    <button class="chat-close" id="chatClose">✕</button>
+  </div>
+  <div class="chat-msgs" id="chatMsgs">
+    <div class="chat-msg bot">Olá! Sou seu assistente financeiro. Posso analisar seus gastos, dar dicas de economia e ajudar a organizar suas finanças. Como posso te ajudar?</div>
+  </div>
+  <div class="chat-suggestions" id="chatSugs">
+    <button class="chat-sug" onclick="sendSuggestion('Como estão meus gastos este mês?')">📊 Resumo do mês</button>
+    <button class="chat-sug" onclick="sendSuggestion('Onde posso economizar?')">💡 Dicas de economia</button>
+    <button class="chat-sug" onclick="sendSuggestion('Qual minha situação financeira?')">📈 Situação geral</button>
+  </div>
+  <div class="chat-input-wrap">
+    <textarea class="chat-input" id="chatInput" placeholder="Pergunte algo sobre suas finanças..." rows="1"></textarea>
+    <button class="chat-send" id="chatSend" title="Enviar">➤</button>
   </div>
 </div>
 
@@ -836,10 +887,9 @@ async function startApp() {
 function showBlocked(r){
   goTo('s-blocked');
   const msgs={vencido:{badge:'● Assinatura Vencida',title:'Assinatura Vencida',msg:'Seu período de acesso expirou. Renove para continuar usando o FinanceFlow.'},
-    expirado:{badge:'● Assinatura Vencida',title:'Assinatura Vencida',msg:'Seu período de acesso expirou. Renove para continuar usando o FinanceFlow.'},
     bloqueado:{badge:'⊘ Conta Bloqueada',title:'Conta Bloqueada',msg:'Sua conta foi bloqueada. Entre em contato com o suporte.'},
     pendente:{badge:'◌ Pagamento Pendente',title:'Aguardando Pagamento',msg:'Sua conta está pendente de ativação. Após confirmar o pagamento, o administrador irá liberar seu acesso.'}};
-  const info=msgs[r?.status]||msgs.vencido;
+  const info=msgs[r.status]||msgs.vencido;
   document.getElementById('blBadge').textContent=info.badge;
   document.getElementById('blTitle').textContent=info.title;
   document.getElementById('blMsg').textContent=info.msg;
@@ -920,25 +970,18 @@ async function doLogin(){
 
   if(!profile.ativo){
     await sb.auth.signOut();
-    showBlocked({ status: 'bloqueado', user: profile });
+    setLoginAlert('Conta inativa.', 'error');
     return;
   }
 
   if(!profile.pagamento_ok){
     await sb.auth.signOut();
-    showBlocked({ status: 'pendente', user: profile });
-    return;
-  }
-
-  // Verificar data de expiração
-  if (profile.data_expiracao) {
-    const hoje = new Date();
-    const vencimento = new Date(profile.data_expiracao + 'T23:59:59');
-    if (hoje > vencimento) {
-      await sb.auth.signOut();
-      showBlocked({ status: 'vencido', user: profile });
-      return;
+    if (typeof showBlocked === 'function') {
+      showBlocked();
+    } else {
+      setLoginAlert('Pagamento pendente.', 'error');
     }
+    return;
   }
 
   setLoginAlert('Login realizado!', 'success');
@@ -1627,6 +1670,161 @@ const sb = window.supabaseClient;
   startApp();
   await checkSession();
 })();
+
+// ═══════════════════════════════════════════════════════════
+// AI CHAT ASSISTANT
+// ═══════════════════════════════════════════════════════════
+const chatHistory = [];
+
+function showChatFab() {
+  document.getElementById('chatFab').style.display = 'flex';
+}
+
+function toggleChat() {
+  const panel = document.getElementById('chatPanel');
+  const fab = document.getElementById('chatFab');
+  if (panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    fab.classList.remove('hide');
+  } else {
+    panel.classList.add('open');
+    fab.classList.add('hide');
+  }
+}
+
+document.getElementById('chatFab').addEventListener('click', toggleChat);
+document.getElementById('chatClose').addEventListener('click', toggleChat);
+
+function getFinancialContext() {
+  if (!CU || !ST) return 'Nenhum dado financeiro carregado.';
+
+  const ym = ST.curMonth;
+  const accs = ST.accounts.filter(a => accMonth(a) === ym);
+  const income = parseFloat(ST.income[ym] || 0);
+  const total = accs.reduce((s, a) => s + parseFloat(a.value || 0), 0);
+  const paid = accs.filter(a => a.status === 'pago').reduce((s, a) => s + parseFloat(a.value || 0), 0);
+  const pending = accs.filter(a => a.status === 'pendente').reduce((s, a) => s + parseFloat(a.value || 0), 0);
+  const late = accs.filter(a => a.status === 'atrasado').reduce((s, a) => s + parseFloat(a.value || 0), 0);
+  const saldo = income - paid;
+
+  const byCategory = {};
+  accs.forEach(a => {
+    if (!byCategory[a.category]) byCategory[a.category] = { total: 0, count: 0 };
+    byCategory[a.category].total += parseFloat(a.value || 0);
+    byCategory[a.category].count++;
+  });
+
+  const catList = Object.entries(byCategory)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([cat, d]) => `${cat}: R$${d.total.toFixed(2)} (${d.count} contas)`)
+    .join('; ');
+
+  const lateAccs = accs.filter(a => a.status === 'atrasado')
+    .map(a => `${a.name} (R$${parseFloat(a.value).toFixed(2)}, venc. ${a.dueDate})`)
+    .join('; ');
+
+  const pendingAccs = accs.filter(a => a.status === 'pendente')
+    .map(a => `${a.name} (R$${parseFloat(a.value).toFixed(2)}, venc. ${a.dueDate})`)
+    .join('; ');
+
+  return `
+DADOS FINANCEIROS DO USUARIO - ${fmtM(ym)}:
+- Nome: ${CU.nome}
+- Receita do mês: R$${income.toFixed(2)}
+- Total de contas: R$${total.toFixed(2)} (${accs.length} contas)
+- Valor pago: R$${paid.toFixed(2)}
+- Valor pendente: R$${pending.toFixed(2)}
+- Valor atrasado: R$${late.toFixed(2)}
+- Saldo atual (receita - pago): R$${saldo.toFixed(2)}
+- Progresso de pagamento: ${total > 0 ? Math.round(paid / total * 100) : 0}%
+- Gastos por categoria: ${catList || 'Nenhum'}
+- Contas atrasadas: ${lateAccs || 'Nenhuma'}
+- Contas pendentes: ${pendingAccs || 'Nenhuma'}
+`.trim();
+}
+
+function addChatMsg(text, type) {
+  const container = document.getElementById('chatMsgs');
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg ' + type;
+  msg.innerHTML = text;
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+  return msg;
+}
+
+function sendSuggestion(text) {
+  document.getElementById('chatInput').value = text;
+  sendChat();
+  document.getElementById('chatSugs').style.display = 'none';
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  addChatMsg(text, 'user');
+
+  const typingMsg = addChatMsg('Analisando seus dados...', 'bot typing');
+
+  const sendBtn = document.getElementById('chatSend');
+  sendBtn.disabled = true;
+
+  chatHistory.push({ role: 'user', content: text });
+
+  try {
+    const context = getFinancialContext();
+
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: chatHistory,
+        context: context
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Erro na API');
+    }
+
+    const data = await response.json();
+    const reply = data.reply || 'Desculpe, não consegui processar sua pergunta.';
+
+    typingMsg.remove();
+
+    const formatted = reply
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+    addChatMsg(formatted, 'bot');
+
+    chatHistory.push({ role: 'assistant', content: reply });
+
+  } catch (err) {
+    console.error('Chat error:', err);
+    typingMsg.remove();
+    addChatMsg('Desculpe, ocorreu um erro. Tente novamente.', 'bot');
+  }
+
+  sendBtn.disabled = false;
+}
+
+document.getElementById('chatSend').addEventListener('click', sendChat);
+document.getElementById('chatInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChat();
+  }
+});
+
+// Show chat FAB when user is logged in
+const _origInitDash = initDash;
+initDash = async function() {
+  await _origInitDash();
+  showChatFab();
+};
 </script>
 </body>
 </html>
