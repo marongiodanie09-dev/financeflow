@@ -398,6 +398,9 @@ function setRenovacaoRapida(dias){
   const d = String(base.getDate()).padStart(2, '0');
 
   input.value = `${y}-${m}-${d}`;
+
+  // Renovação automática: muda status para ativo
+  document.getElementById('editStatus').value = 'ativo';
 }
 function diasRestantes(exp){
   if(!exp) return null;
