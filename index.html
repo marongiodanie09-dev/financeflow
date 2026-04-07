@@ -864,7 +864,7 @@ function toast(m,t='success'){const el=document.getElementById('toast');el.textC
 // ═══════════════════════════════════════════════════════════
 // SCREEN ROUTER
 // ═══════════════════════════════════════════════════════════
-function goTo(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function goTo(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');if(id!=='s-dash'){document.getElementById('chatFab').style.display='none';document.getElementById('chatPanel').classList.remove('open')}}
 
 async function startApp() {
   const r = await Auth.check();
