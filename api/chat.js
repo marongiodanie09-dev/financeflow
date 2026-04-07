@@ -6,15 +6,17 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  var apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    console.error('GEMINI_API_KEY not found in environment variables');
+    console.error('GEMINI_API_KEY not found');
     return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
   }
 
   try {
-    const { messages, context } = req.body;
+    var body = req.body;
+    var messages = body.messages;
+    var context = body.context;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'Invalid messages' });
@@ -28,10 +30,11 @@ module.exports = async function handler(req, res) {
     systemInstruction += '- De dicas especificas baseadas nos gastos reais\n';
     systemInstruction += '- Formate valores em R$ (reais)\n';
     systemInstruction += '- Use **negrito** para destacar valores e pontos importantes\n';
-    systemInstruction += '- Mantenha respostas curtas (maximo 200 palavras)\n';
+    systemInstruction += '- Mantenha respostas curtas (maximo 150 palavras)\n';
     systemInstruction += '- Nao invente dados que nao foram fornecidos\n';
     systemInstruction += '- Se o usuario nao tem dados, sugira que cadastre suas contas primeiro\n';
-    systemInstruction += '- Foque em: analise de gastos, dicas de economia, alertas sobre atrasos, planejamento\n\n';
+    systemInstruction += '- Foque em: analise de gastos, dicas de economia, alertas sobre atrasos, planejamento\n';
+    systemInstruction += '- NAO use markdown de titulos (##), apenas **negrito** quando necessario\n\n';
     systemInstruction += 'DADOS ATUAIS DO USUARIO:\n';
     systemInstruction += (context || 'Nenhum dado disponivel.');
 
@@ -55,8 +58,11 @@ module.exports = async function handler(req, res) {
         },
         contents: contents,
         generationConfig: {
-          maxOutputTokens: 500,
-          temperature: 0.7
+          maxOutputTokens: 2048,
+          temperature: 0.7,
+          thinkingConfig: {
+            thinkingBudget: 0
+          }
         }
       })
     });
@@ -72,9 +78,12 @@ module.exports = async function handler(req, res) {
     var reply = 'Sem resposta.';
 
     if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-      reply = data.candidates[0].content.parts
-        .map(function(p) { return p.text; })
-        .join('\n');
+      var textParts = data.candidates[0].content.parts.filter(function(p) {
+        return p.text && !p.thought;
+      });
+      if (textParts.length > 0) {
+        reply = textParts.map(function(p) { return p.text; }).join('\n');
+      }
     }
 
     return res.status(200).json({ reply: reply });
