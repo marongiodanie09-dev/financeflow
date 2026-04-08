@@ -946,27 +946,15 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   initLogin();
 });
 
-// ── REGISTRA ULTIMO ACESSO ─────────────────────────────────
-// Atualiza ultimo_acesso no perfil sempre que uma sessão for detectada.
-// Isso funciona para qualquer usuário (admin ou não) que fizer login.
-sb.auth.onAuthStateChange(async (event, session) => {
-  if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user?.id) {
-    await sb
-      .from('profiles')
-      .update({ ultimo_acesso: new Date().toISOString() })
-      .eq('id', session.user.id);
-  }
-});
-
 // ── REGISTRAR ÚLTIMO ACESSO ────────────────────────────────
-// Atualiza ultimo_acesso do usuário autenticado ao entrar no sistema.
-// Cole este listener também no seu arquivo principal (index.html/app.js):
-sb.auth.onAuthStateChange(async (event, session) => {
+// Fire-and-forget: sem await para não bloquear o fluxo de autenticação
+sb.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_IN' && session?.user) {
-    await sb
-      .from('profiles')
+    sb.from('profiles')
       .update({ ultimo_acesso: new Date().toISOString() })
-      .eq('id', session.user.id);
+      .eq('id', session.user.id)
+      .then(() => {})
+      .catch(() => {});
   }
 });
 
