@@ -949,63 +949,40 @@ async function doLogin(){
   }
 
   setLoginLoad(true);
+  console.log('[Login] Iniciando...');
 
-  // Timer de segurança: SEMPRE para o spinner após 15s
+  // Timer de segurança: para o spinner em 15s se travar
   const safetyTimer = setTimeout(() => {
     setLoginLoad(false);
-    setLoginAlert('Tempo esgotado. Verifique sua conexão e tente novamente.', 'error');
+    setLoginAlert('Tempo esgotado. Verifique sua conexão.', 'error');
   }, 15000);
 
   try {
-    // Timeout de 12s no próprio login
-    const loginPromise = sb.auth.signInWithPassword({ email: e, password: s });
-    const loginTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('login_timeout')), 12000));
-
-    let data, error;
-    try {
-      const result = await Promise.race([loginPromise, loginTimeout]);
-      data = result.data;
-      error = result.error;
-    } catch(e) {
-      clearTimeout(safetyTimer);
-      setLoginLoad(false);
-      setLoginAlert('Sem resposta do servidor. Verifique sua conexão.', 'error');
-      return;
-    }
+    console.log('[Login] signInWithPassword...');
+    const { data, error } = await sb.auth.signInWithPassword({ email: e, password: s });
+    console.log('[Login] Retornou:', { user: data?.user?.id, error });
 
     if(error || !data?.user){
       clearTimeout(safetyTimer);
       setLoginLoad(false);
-      console.error('Erro real do login:', error);
       setLoginAlert(error?.message || 'Credenciais inválidas.', 'error');
       return;
     }
 
     const user = data.user;
+    console.log('[Login] Buscando perfil...');
 
-    // Timeout de 8s no fetch do perfil
-    const fetchProfile = sb.from('profiles').select('*').eq('id', user.id).single();
-    const profileTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('profile_timeout')), 8000));
+    const { data: profile, error: profileError } = await sb
+      .from('profiles').select('*').eq('id', user.id).single();
 
-    let profile, profileError;
-    try {
-      const result = await Promise.race([fetchProfile, profileTimeout]);
-      profile = result.data;
-      profileError = result.error;
-    } catch(timeoutErr) {
-      clearTimeout(safetyTimer);
-      setLoginLoad(false);
-      setLoginAlert('Erro ao carregar perfil. Tente novamente.', 'error');
-      await sb.auth.signOut();
-      return;
-    }
+    console.log('[Login] Perfil:', { profile, profileError });
 
     clearTimeout(safetyTimer);
     setLoginLoad(false);
 
     if(profileError || !profile){
       await sb.auth.signOut();
-      setLoginAlert('Perfil não encontrado. Verifique sua conta.', 'error');
+      setLoginAlert('Perfil não encontrado.', 'error');
       return;
     }
 
@@ -1017,11 +994,8 @@ async function doLogin(){
 
     if(!profile.pagamento_ok){
       await sb.auth.signOut();
-      if (typeof showBlocked === 'function') {
-        showBlocked();
-      } else {
-        setLoginAlert('Pagamento pendente.', 'error');
-      }
+      if (typeof showBlocked === 'function') showBlocked();
+      else setLoginAlert('Pagamento pendente.', 'error');
       return;
     }
 
@@ -1039,15 +1013,12 @@ async function doLogin(){
     localStorage.setItem('ff_user_email', profile.email || '');
     localStorage.setItem('ff_user_nome', profile.nome || 'Usuário');
 
-    setTimeout(() => {
-      goTo('s-dash');
-      initDash();
-    }, 600);
+    setTimeout(() => { goTo('s-dash'); initDash(); }, 600);
 
   } catch(err) {
     clearTimeout(safetyTimer);
     setLoginLoad(false);
-    console.error('Erro inesperado no login:', err);
+    console.error('[Login] Erro inesperado:', err);
     setLoginAlert('Erro inesperado. Tente novamente.', 'error');
   }
 }
