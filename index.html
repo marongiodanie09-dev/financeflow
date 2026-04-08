@@ -950,13 +950,31 @@ async function doLogin(){
 
   setLoginLoad(true);
 
+  // Timer de segurança: SEMPRE para o spinner após 15s
+  const safetyTimer = setTimeout(() => {
+    setLoginLoad(false);
+    setLoginAlert('Tempo esgotado. Verifique sua conexão e tente novamente.', 'error');
+  }, 15000);
+
   try {
-    const { data, error } = await sb.auth.signInWithPassword({
-      email: e,
-      password: s
-    });
+    // Timeout de 12s no próprio login
+    const loginPromise = sb.auth.signInWithPassword({ email: e, password: s });
+    const loginTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('login_timeout')), 12000));
+
+    let data, error;
+    try {
+      const result = await Promise.race([loginPromise, loginTimeout]);
+      data = result.data;
+      error = result.error;
+    } catch(e) {
+      clearTimeout(safetyTimer);
+      setLoginLoad(false);
+      setLoginAlert('Sem resposta do servidor. Verifique sua conexão.', 'error');
+      return;
+    }
 
     if(error || !data?.user){
+      clearTimeout(safetyTimer);
       setLoginLoad(false);
       console.error('Erro real do login:', error);
       setLoginAlert(error?.message || 'Credenciais inválidas.', 'error');
@@ -965,22 +983,24 @@ async function doLogin(){
 
     const user = data.user;
 
-    // Timeout de 10s para evitar spinner infinito
+    // Timeout de 8s no fetch do perfil
     const fetchProfile = sb.from('profiles').select('*').eq('id', user.id).single();
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000));
+    const profileTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('profile_timeout')), 8000));
 
     let profile, profileError;
     try {
-      const result = await Promise.race([fetchProfile, timeout]);
+      const result = await Promise.race([fetchProfile, profileTimeout]);
       profile = result.data;
       profileError = result.error;
     } catch(timeoutErr) {
+      clearTimeout(safetyTimer);
       setLoginLoad(false);
-      setLoginAlert('Conexão lenta. Tente novamente.', 'error');
+      setLoginAlert('Erro ao carregar perfil. Tente novamente.', 'error');
       await sb.auth.signOut();
       return;
     }
 
+    clearTimeout(safetyTimer);
     setLoginLoad(false);
 
     if(profileError || !profile){
@@ -1025,6 +1045,7 @@ async function doLogin(){
     }, 600);
 
   } catch(err) {
+    clearTimeout(safetyTimer);
     setLoginLoad(false);
     console.error('Erro inesperado no login:', err);
     setLoginAlert('Erro inesperado. Tente novamente.', 'error');
