@@ -237,6 +237,16 @@ window.sb = sb;
 window.supabaseClient = sb;
 
 console.log("Supabase conectado!");
+
+// Grava último acesso sempre que o usuário fizer login
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && session?.user) {
+    await sb
+      .from('profiles')
+      .update({ ultimo_acesso: new Date().toISOString() })
+      .eq('id', session.user.id);
+  }
+});
 </script>
 
 <!-- ═══════════════════════════════
