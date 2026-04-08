@@ -950,67 +950,75 @@ async function doLogin(){
 
   setLoginLoad(true);
 
-  const { data, error } = await sb.auth.signInWithPassword({
-    email: e,
-    password: s
-  });
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({
+      email: e,
+      password: s
+    });
 
- if(error || !data?.user){
-  setLoginLoad(false);
-  console.error('Erro real do login:', error);
-  setLoginAlert(error?.message || 'Credenciais inválidas.', 'error');
-  return;
-  }
-
-  const user = data.user;
-
-  const { data: profile, error: profileError } = await sb
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-
-  setLoginLoad(false);
-
-  if(profileError || !profile){
-    await sb.auth.signOut();
-    setLoginAlert('Perfil não encontrado.', 'error');
-    return;
-  }
-
-  if(!profile.ativo){
-    await sb.auth.signOut();
-    setLoginAlert('Conta inativa.', 'error');
-    return;
-  }
-
-  if(!profile.pagamento_ok){
-    await sb.auth.signOut();
-    if (typeof showBlocked === 'function') {
-      showBlocked();
-    } else {
-      setLoginAlert('Pagamento pendente.', 'error');
+    if(error || !data?.user){
+      setLoginLoad(false);
+      console.error('Erro real do login:', error);
+      setLoginAlert(error?.message || 'Credenciais inválidas.', 'error');
+      return;
     }
-    return;
+
+    const user = data.user;
+
+    const { data: profile, error: profileError } = await sb
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    setLoginLoad(false);
+
+    if(profileError || !profile){
+      await sb.auth.signOut();
+      setLoginAlert('Perfil não encontrado. Verifique sua conta.', 'error');
+      return;
+    }
+
+    if(!profile.ativo){
+      await sb.auth.signOut();
+      setLoginAlert('Conta inativa.', 'error');
+      return;
+    }
+
+    if(!profile.pagamento_ok){
+      await sb.auth.signOut();
+      if (typeof showBlocked === 'function') {
+        showBlocked();
+      } else {
+        setLoginAlert('Pagamento pendente.', 'error');
+      }
+      return;
+    }
+
+    setLoginAlert('Login realizado!', 'success');
+
+    CU = {
+      id: profile.id,
+      nome: profile.nome || 'Usuário',
+      email: profile.email,
+      paymentOk: profile.pagamento_ok,
+      statusPagamento: profile.pagamento_ok ? 'ativo' : 'pendente'
+    };
+
+    localStorage.setItem('ff_user_id', profile.id);
+    localStorage.setItem('ff_user_email', profile.email || '');
+    localStorage.setItem('ff_user_nome', profile.nome || 'Usuário');
+
+    setTimeout(() => {
+      goTo('s-dash');
+      initDash();
+    }, 600);
+
+  } catch(err) {
+    setLoginLoad(false);
+    console.error('Erro inesperado no login:', err);
+    setLoginAlert('Erro inesperado. Tente novamente.', 'error');
   }
-
-  setLoginAlert('Login realizado!', 'success');
-
-  CU = {
-    id: profile.id,
-    nome: profile.nome || 'Usuário',
-    email: profile.email,
-    paymentOk: profile.pagamento_ok,
-    statusPagamento: profile.pagamento_ok ? 'ativo' : 'pendente'
-  };
-localStorage.setItem('ff_user_id', profile.id);
-localStorage.setItem('ff_user_email', profile.email || '');
-localStorage.setItem('ff_user_nome', profile.nome || 'Usuário');
-
-  setTimeout(() => {
-    goTo('s-dash');
-    initDash();
-  }, 600);
 }
 
 document.getElementById('btnLogin').addEventListener('click', doLogin);
