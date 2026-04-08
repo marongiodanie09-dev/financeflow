@@ -1179,6 +1179,7 @@ function populateSelects(){
 // ═══════════════════════════════════════════════════════════
 let savings = [];
 let editSavingId = null;
+let _savingInProgress = false;
 
 async function loadSavings() {
   const sb = window.supabaseClient;
@@ -1240,7 +1241,7 @@ function closeSaving() {
 }
 
 async function saveSaving() {
-  if (document.getElementById('mSavingSave').disabled) return;
+  if (_savingInProgress) return;
   const sb = window.supabaseClient;
   const name = document.getElementById('sName').value.trim();
   const cat = document.getElementById('sCat').value;
@@ -1249,33 +1250,59 @@ async function saveSaving() {
   if (!name) { toast('Informe o nome.', 'error'); return; }
   if (!val || val < 0) { toast('Informe um valor válido.', 'error'); return; }
 
-  setBtnLoading('mSavingSave', true);
+  _savingInProgress = true;
+  const btn = document.getElementById('mSavingSave');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  const savedId = editSavingId;
+  closeSaving();
+
+  // Atualização otimista imediata
+  const tempId = savedId || ('temp_' + Date.now());
+  if (savedId) {
+    savings = savings.map(s => s.id === savedId ? { ...s, name, category: cat, amount: val, obs } : s);
+  } else {
+    savings = [{ id: tempId, name, category: cat, amount: val, obs, createdAt: new Date().toISOString() }, ...savings];
+  }
+  renderPatrimonio();
+
   try {
     const payload = { user_id: CU.id, name, category: cat, amount: val, obs };
     let error;
-    if (editSavingId) {
-      ({ error } = await sb.from('savings').update(payload).eq('id', editSavingId));
+    if (savedId) {
+      ({ error } = await sb.from('savings').update(payload).eq('id', savedId));
     } else {
       ({ error } = await sb.from('savings').insert(payload));
     }
-    if (error) { toast('Erro ao salvar.', 'error'); console.error(error); return; }
-    toast(editSavingId ? 'Entrada atualizada!' : 'Entrada adicionada!', 'success');
-    closeSaving();
+    if (error) { toast('Erro ao salvar.', 'error'); console.error(error); }
+    else { toast(savedId ? 'Entrada atualizada!' : 'Entrada adicionada!', 'success'); }
+    // Reload para sincronizar IDs reais
     await loadSavings();
     renderPatrimonio();
   } finally {
-    setBtnLoading('mSavingSave', false, 'Salvar');
+    _savingInProgress = false;
+    btn.disabled = false;
+    btn.textContent = 'Salvar';
   }
 }
 
 async function deleteSaving(id) {
   if (!confirm('Excluir esta entrada?')) return;
   const sb = window.supabaseClient;
-  const { error } = await sb.from('savings').delete().eq('id', id);
-  if (error) { toast('Erro ao excluir.', 'error'); return; }
-  toast('Entrada removida.', 'info');
-  await loadSavings();
+
+  // Atualização otimista imediata
+  savings = savings.filter(s => s.id !== id);
   renderPatrimonio();
+
+  const { error } = await sb.from('savings').delete().eq('id', id);
+  if (error) {
+    toast('Erro ao excluir.', 'error');
+    await loadSavings();
+    renderPatrimonio();
+    return;
+  }
+  toast('Entrada removida.', 'info');
 }
 
 document.getElementById('btnNewSaving').addEventListener('click', () => openSaving());
@@ -1457,8 +1484,9 @@ async function reloadAndRender() {
   if (ap) renderPage(ap);
 }
 
+let _accSaving = false;
 document.getElementById('mAccSave').addEventListener('click', async () => {
-  if (document.getElementById('mAccSave').disabled) return;
+  if (_accSaving) return;
 
   const name = document.getElementById('fName').value.trim();
   const cat = document.getElementById('fCat').value;
@@ -1474,17 +1502,28 @@ document.getElementById('mAccSave').addEventListener('click', async () => {
   if (!due) { toast('Informe a data de vencimento.', 'error'); return; }
   if (!type) { toast('Selecione o tipo de pagamento.', 'error'); return; }
 
+  _accSaving = true;
   setBtnLoading('mAccSave', true);
+  const editId = ST.editId;
+  closeAccModal();
 
-  const data = { name, category: cat, value: val, dueDate: due, paymentType: type, status: st, observation: obs };
+  // Atualização otimista imediata
+  const accData = { name, category: cat, value: val, dueDate: due, paymentType: type, status: st, observation: obs };
+  if (editId) {
+    const i = ST.accounts.findIndex(a => a.id === editId);
+    if (i >= 0) { ST.accounts[i] = { ...ST.accounts[i], ...accData }; }
+  } else {
+    ST.accounts.unshift({ id: 'temp_' + Date.now(), ...accData, paidDate: st === 'pago' ? new Date().toISOString().slice(0,10) : null });
+  }
+  renderPage(getActivePage());
 
   try {
-    if (ST.editId) {
-      const i = ST.accounts.findIndex(a => a.id === ST.editId);
+    const data = { name, category: cat, value: val, dueDate: due, paymentType: type, status: st, observation: obs };
+    if (editId) {
+      const i = ST.accounts.findIndex(a => a.id === editId);
       if (i < 0) { toast('Conta não encontrada.', 'error'); return; }
-      const current = ST.accounts[i];
-      const updated = { ...current, ...data, paidDate: st === 'pago' ? (current.paidDate || new Date().toISOString().slice(0,10)) : null };
-      const saved = await updateAccount(ST.editId, updated);
+      const updated = { ...ST.accounts[i], ...data, paidDate: st === 'pago' ? (ST.accounts[i].paidDate || new Date().toISOString().slice(0,10)) : null };
+      const saved = await updateAccount(editId, updated);
       if (!saved) return;
       toast('Conta atualizada!', 'success');
     } else {
@@ -1492,18 +1531,20 @@ document.getElementById('mAccSave').addEventListener('click', async () => {
       if (!created) return;
       toast('Conta cadastrada!', 'success');
     }
-    closeAccModal();
     await reloadAndRender();
   } finally {
+    _accSaving = false;
     setBtnLoading('mAccSave', false, 'Salvar Conta');
   }
 });
 async function delAcc(id){
   if (!confirm('Excluir esta conta?')) return;
+  // Otimista: remove imediatamente da UI
+  ST.accounts = ST.accounts.filter(a => a.id !== id);
+  renderPage(getActivePage());
   const ok = await deleteAccount(id);
-  if (!ok) return;
+  if (!ok) { toast('Erro ao excluir.', 'error'); await reloadAndRender(); return; }
   toast('Conta excluída.', 'info');
-  await reloadAndRender();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1522,8 +1563,9 @@ document.getElementById('btnNewInst').addEventListener('click',()=>{
   const[y,m]=ST.curMonth.split('-');document.getElementById('iStart').value=`${y}-${m}`;
   document.getElementById('mInst').classList.add('show');
 });
+let _instSaving = false;
 document.getElementById('mInstSave').addEventListener('click', async () => {
-  if (document.getElementById('mInstSave').disabled) return;
+  if (_instSaving) return;
 
   const name = document.getElementById('iName').value.trim();
   const total = parseFloat(document.getElementById('iTotal').value);
@@ -1539,7 +1581,9 @@ document.getElementById('mInstSave').addEventListener('click', async () => {
   if (!start) { toast('Informe o mês inicial.', 'error'); return; }
   if (!cat) { toast('Selecione uma categoria.', 'error'); return; }
 
+  _instSaving = true;
   setBtnLoading('mInstSave', true, 'Criar Parcelas');
+  closeInstModal();
 
   try {
     const gid = _uid();
@@ -1561,6 +1605,7 @@ document.getElementById('mInstSave').addEventListener('click', async () => {
     toast(`${cnt} parcelas criadas!`, 'success');
     await reloadAndRender();
   } finally {
+    _instSaving = false;
     setBtnLoading('mInstSave', false, 'Criar Parcelas');
   }
 });
