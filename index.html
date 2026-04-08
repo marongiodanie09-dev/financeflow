@@ -965,11 +965,21 @@ async function doLogin(){
 
     const user = data.user;
 
-    const { data: profile, error: profileError } = await sb
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+    // Timeout de 10s para evitar spinner infinito
+    const fetchProfile = sb.from('profiles').select('*').eq('id', user.id).single();
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000));
+
+    let profile, profileError;
+    try {
+      const result = await Promise.race([fetchProfile, timeout]);
+      profile = result.data;
+      profileError = result.error;
+    } catch(timeoutErr) {
+      setLoginLoad(false);
+      setLoginAlert('Conexão lenta. Tente novamente.', 'error');
+      await sb.auth.signOut();
+      return;
+    }
 
     setLoginLoad(false);
 
