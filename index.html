@@ -193,7 +193,27 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="month"]::-webk
 /* Toast */
 .toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 20px;font-size:.88rem;font-weight:500;color:var(--text);z-index:1000;opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s;pointer-events:none;box-shadow:var(--shadow);max-width:320px}
 .toast.show{opacity:1;transform:none}.toast.success{border-color:var(--green);color:var(--green)}.toast.error{border-color:var(--red);color:var(--red)}.toast.info{border-color:var(--accent);color:var(--accent)}
-/* Responsive */
+/* Patrimônio */
+.pat-hero{background:linear-gradient(135deg,rgba(34,208,122,.1),rgba(79,142,247,.08));border:1px solid rgba(34,208,122,.2);border-radius:var(--radius);padding:28px 32px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.pat-hero-left{display:flex;flex-direction:column;gap:6px}
+.pat-hero-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text2)}
+.pat-hero-val{font-family:'Space Mono',monospace;font-size:2.2rem;font-weight:700;color:var(--green);letter-spacing:-.02em}
+.pat-hero-sub{font-size:.82rem;color:var(--text2)}
+.pat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:28px}
+.pat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;cursor:default}.pat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.pat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.pat-poupanca::before{background:var(--green)}.pat-investimento::before{background:var(--accent)}.pat-reserva::before{background:var(--yellow)}.pat-outros::before{background:var(--text2)}
+.pat-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.pat-cat{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:2px 10px;border-radius:100px}
+.pat-cat.poupanca{background:var(--green-bg);color:var(--green)}.pat-cat.investimento{background:var(--blue-bg);color:var(--accent)}.pat-cat.reserva{background:var(--yellow-bg);color:var(--yellow)}.pat-cat.outros{background:var(--bg3);color:var(--text2)}
+.pat-card-actions{display:flex;gap:4px}
+.pat-name{font-weight:700;font-size:.95rem;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pat-val{font-family:'Space Mono',monospace;font-size:1.3rem;font-weight:700;color:var(--green)}
+.pat-date{font-size:.72rem;color:var(--text3);margin-top:6px}
+.pat-empty{text-align:center;padding:60px 20px;color:var(--text3);border:2px dashed var(--border);border-radius:var(--radius)}
+.pat-empty-icon{font-size:2.5rem;margin-bottom:12px}
+.pat-empty-text{font-size:.9rem;margin-bottom:16px}
+@media(max-width:768px){.pat-hero{padding:20px;flex-direction:column;align-items:flex-start}.pat-hero-val{font-size:1.7rem}.pat-grid{grid-template-columns:1fr}}
 @media(max-width:1024px){.cards-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:900px){.auth-left{display:none}.auth-right{width:100%;padding:32px 24px}.mobile-brand{display:flex}.auth-card{max-width:420px}}
 @media(max-width:768px){:root{--sw:0px}.sidebar{width:260px;transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.sb-close-btn{display:block}.main{margin-left:0}.menu-toggle{display:block}.topbar{padding:0 16px}.page{padding:16px}.cards-grid{grid-template-columns:repeat(2,1fr);gap:10px}.c-val{font-size:1.1rem}.bal-bar{flex-direction:column;align-items:flex-start;padding:16px}.bal-sep{display:none}.form-grid{grid-template-columns:1fr}.full{grid-column:1}.mlabel{min-width:90px;font-size:.72rem}}
@@ -392,6 +412,7 @@ sb.auth.onAuthStateChange((event, session) => {
     <nav class="sb-nav">
       <a class="nav-item active" data-page="dashboard"><span class="nav-icon">▦</span> Dashboard</a>
       <a class="nav-item" data-page="accounts"><span class="nav-icon">◉</span> Contas</a>
+      <a class="nav-item" data-page="patrimonio"><span class="nav-icon">◈</span> Patrimônio</a>
       <a class="nav-item" data-page="installments"><span class="nav-icon">◫</span> Parcelas</a>
       <a class="nav-item" data-page="categories"><span class="nav-icon">◑</span> Categorias</a>
     </nav>
@@ -467,6 +488,23 @@ sb.auth.onAuthStateChange((event, session) => {
         <button class="btn-clr" id="aClr">✕ Limpar</button>
       </div>
       <div class="acc-list" id="accList"></div>
+    </div>
+
+    <!-- Patrimônio -->
+    <div class="page" id="page-patrimonio">
+      <div class="page-hd">
+        <h2 class="sec-title" style="margin:0">Patrimônio Guardado</h2>
+        <button class="btn-new" id="btnNewSaving">+ Nova Entrada</button>
+      </div>
+      <div class="pat-hero">
+        <div class="pat-hero-left">
+          <div class="pat-hero-label">💰 Total Guardado</div>
+          <div class="pat-hero-val" id="patTotal">R$ 0,00</div>
+          <div class="pat-hero-sub" id="patSub">0 entradas</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;text-align:right" id="patBreakdown"></div>
+      </div>
+      <div class="pat-grid" id="patGrid"></div>
     </div>
 
     <!-- Parcelas -->
@@ -548,7 +586,33 @@ sb.auth.onAuthStateChange((event, session) => {
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<!-- Modal: Patrimônio -->
+<div class="modal-backdrop" id="mSaving">
+  <div class="modal" style="max-width:440px">
+    <div class="mh"><h3 id="mSavingTitle">Nova Entrada</h3><button class="mc-btn" id="mSavingClose">✕</button></div>
+    <div class="mb">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="fg"><label>Nome *</label><input type="text" id="sName" placeholder="Ex: Poupança, Tesouro Direto..."/></div>
+        <div class="fg"><label>Categoria *</label>
+          <select id="sCat">
+            <option value="poupanca">💚 Poupança</option>
+            <option value="investimento">📈 Investimento</option>
+            <option value="reserva">🛡️ Reserva de Emergência</option>
+            <option value="outros">📦 Outros</option>
+          </select>
+        </div>
+        <div class="fg"><label>Valor guardado (R$) *</label><input type="number" id="sVal" placeholder="0,00" min="0" step="0.01"/></div>
+        <div class="fg"><label>Observação</label><textarea id="sObs" rows="2" placeholder="Banco, corretora, descrição..."></textarea></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn-ghost" id="mSavingCancel">Cancelar</button>
+      <button class="btn-save" id="mSavingSave">Salvar</button>
+    </div>
+  </div>
+</div>
+
+
 
 <script>
 'use strict';
@@ -1068,6 +1132,7 @@ document.getElementById('btnJaPaguei')
 async function initDash(){
 
   await loadST();
+  await loadSavings();
 
   populateSelects();
 
@@ -1109,12 +1174,115 @@ function populateSelects(){
 // ═══════════════════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════════════════
-function navigate(pg){
+// ═══════════════════════════════════════════════════════════
+// PATRIMÔNIO (SAVINGS)
+// ═══════════════════════════════════════════════════════════
+let savings = [];
+let editSavingId = null;
+
+async function loadSavings() {
+  const sb = window.supabaseClient;
+  if (!sb || !CU?.id) return;
+  const { data, error } = await sb.from('savings').select('*').eq('user_id', CU.id).order('created_at', { ascending: false });
+  if (error) { console.error('Erro ao carregar patrimônio:', error); return; }
+  savings = (data || []).map(r => ({ id: r.id, name: r.name, amount: Number(r.amount || 0), category: r.category || 'outros', obs: r.obs || '', createdAt: r.created_at }));
+}
+
+function fmt(v) { return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+function renderPatrimonio() {
+  const total = savings.reduce((s, x) => s + x.amount, 0);
+  document.getElementById('patTotal').textContent = fmt(total);
+  document.getElementById('patSub').textContent = savings.length + (savings.length === 1 ? ' entrada' : ' entradas');
+
+  const cats = { poupanca: { label: '💚 Poupança', total: 0 }, investimento: { label: '📈 Investimentos', total: 0 }, reserva: { label: '🛡️ Reserva', total: 0 }, outros: { label: '📦 Outros', total: 0 } };
+  savings.forEach(s => { if (cats[s.category]) cats[s.category].total += s.amount; });
+  document.getElementById('patBreakdown').innerHTML = Object.entries(cats).filter(([, v]) => v.total > 0).map(([, v]) => `<div style="font-size:.8rem"><span style="color:var(--text2)">${v.label}</span> <strong style="font-family:'Space Mono',monospace">${fmt(v.total)}</strong></div>`).join('');
+
+  const grid = document.getElementById('patGrid');
+  if (!savings.length) {
+    grid.innerHTML = `<div class="pat-empty" style="grid-column:1/-1"><div class="pat-empty-icon">💰</div><div class="pat-empty-text">Nenhuma entrada ainda.<br>Adicione seu primeiro patrimônio guardado!</div><button class="btn-new" onclick="openSaving()">+ Nova Entrada</button></div>`;
+    return;
+  }
+  grid.innerHTML = savings.map(s => `
+    <div class="pat-card pat-${s.category}">
+      <div class="pat-card-top">
+        <span class="pat-cat ${s.category}">${{ poupanca: '💚 Poupança', investimento: '📈 Investimento', reserva: '🛡️ Reserva', outros: '📦 Outros' }[s.category]}</span>
+        <div class="pat-card-actions">
+          <button class="btn-ic" onclick="openSaving('${s.id}')" title="Editar">✎</button>
+          <button class="btn-ic del" onclick="deleteSaving('${s.id}')" title="Excluir">🗑</button>
+        </div>
+      </div>
+      <div class="pat-name">${s.name}</div>
+      <div class="pat-val">${fmt(s.amount)}</div>
+      ${s.obs ? `<div class="pat-date" style="font-style:italic">${s.obs}</div>` : ''}
+      <div class="pat-date">Adicionado em ${new Date(s.createdAt).toLocaleDateString('pt-BR')}</div>
+    </div>`).join('');
+}
+
+function openSaving(id) {
+  editSavingId = id || null;
+  const s = id ? savings.find(x => x.id === id) : null;
+  document.getElementById('mSavingTitle').textContent = s ? 'Editar Entrada' : 'Nova Entrada';
+  document.getElementById('sName').value = s?.name || '';
+  document.getElementById('sCat').value = s?.category || 'poupanca';
+  document.getElementById('sVal').value = s?.amount || '';
+  document.getElementById('sObs').value = s?.obs || '';
+  document.getElementById('mSaving').style.display = 'flex';
+  document.getElementById('mSaving').classList.add('show');
+  setTimeout(() => document.getElementById('sName').focus(), 100);
+}
+
+function closeSaving() {
+  document.getElementById('mSaving').classList.remove('show');
+  document.getElementById('mSaving').style.display = 'none';
+  editSavingId = null;
+}
+
+async function saveSaving() {
+  const sb = window.supabaseClient;
+  const name = document.getElementById('sName').value.trim();
+  const cat = document.getElementById('sCat').value;
+  const val = parseFloat(document.getElementById('sVal').value);
+  const obs = document.getElementById('sObs').value.trim();
+  if (!name) { toast('Informe o nome.', 'error'); return; }
+  if (!val || val < 0) { toast('Informe um valor válido.', 'error'); return; }
+  const payload = { user_id: CU.id, name, category: cat, amount: val, obs };
+  let error;
+  if (editSavingId) {
+    ({ error } = await sb.from('savings').update(payload).eq('id', editSavingId));
+  } else {
+    ({ error } = await sb.from('savings').insert(payload));
+  }
+  if (error) { toast('Erro ao salvar.', 'error'); console.error(error); return; }
+  toast(editSavingId ? 'Entrada atualizada!' : 'Entrada adicionada!', 'success');
+  closeSaving();
+  await loadSavings();
+  renderPatrimonio();
+}
+
+async function deleteSaving(id) {
+  if (!confirm('Excluir esta entrada?')) return;
+  const sb = window.supabaseClient;
+  const { error } = await sb.from('savings').delete().eq('id', id);
+  if (error) { toast('Erro ao excluir.', 'error'); return; }
+  toast('Entrada removida.', 'info');
+  await loadSavings();
+  renderPatrimonio();
+}
+
+document.getElementById('btnNewSaving').addEventListener('click', () => openSaving());
+document.getElementById('mSavingClose').addEventListener('click', closeSaving);
+document.getElementById('mSavingCancel').addEventListener('click', closeSaving);
+document.getElementById('mSaving').addEventListener('click', e => { if (e.target === document.getElementById('mSaving')) closeSaving(); });
+document.getElementById('mSavingSave').addEventListener('click', saveSaving);
+
+
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('[data-page]').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+pg).classList.add('active');
   document.querySelector('[data-page="'+pg+'"]').classList.add('active');
-  const titles={dashboard:'Dashboard',accounts:'Contas',installments:'Parcelas',categories:'Categorias'};
+  const titles={dashboard:'Dashboard',accounts:'Contas',installments:'Parcelas',categories:'Categorias',patrimonio:'Patrimônio'};
   document.getElementById('tbTitle').textContent=titles[pg];
   renderPage(pg);closeSb();
 }
@@ -1123,6 +1291,7 @@ function renderPage(pg){
   if(pg==='accounts')renderAccounts();
   if(pg==='installments')renderInstallments();
   if(pg==='categories')renderCategories();
+  if(pg==='patrimonio')renderPatrimonio();
 }
 document.querySelectorAll('[data-page]').forEach(item=>item.addEventListener('click',e=>{e.preventDefault();navigate(item.dataset.page)}));
 
