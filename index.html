@@ -1277,7 +1277,7 @@ document.getElementById('mSavingCancel').addEventListener('click', closeSaving);
 document.getElementById('mSaving').addEventListener('click', e => { if (e.target === document.getElementById('mSaving')) closeSaving(); });
 document.getElementById('mSavingSave').addEventListener('click', saveSaving);
 
-
+function navigate(pg){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('[data-page]').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+pg).classList.add('active');
