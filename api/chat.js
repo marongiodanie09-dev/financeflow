@@ -1,7 +1,16 @@
+// =============================================
+// FINANCE FLOW - CHAT IA BLINDADO v3
+// Cadeia de modelos fallback + cache + offline
+// =============================================
+
+// Cache em memoria para evitar chamadas repetidas
+var responseCache = {};
+var CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+// Controle de cooldown por modelo
+var modelCooldowns = {};
+
 module.exports = async function handler(req, res) {
-  // =============================================
-  // CORS
-  // =============================================
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -10,191 +19,234 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   var apiKey = process.env.GEMINI_API_KEY;
-
   if (!apiKey) {
-    console.error('[FinanceFlow] GEMINI_API_KEY not found');
     return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
   }
 
   // =============================================
-  // FUNCAO DE ESPERA (para retry)
+  // MODELOS EM ORDEM DE PREFERENCIA
+  // Se um da rate limit, pula pro proximo
+  // =============================================
+  var MODELS = [
+    'gemini-2.0-flash',       // 15 RPM free — principal
+    'gemini-2.0-flash-lite',  // 30 RPM free — mais leve, mais quota
+    'gemini-1.5-flash'        // 15 RPM free — fallback estavel
+  ];
+
+  // =============================================
+  // UTILIDADES
   // =============================================
   function wait(ms) {
-    return new Promise(function (resolve) {
-      setTimeout(resolve, ms);
-    });
+    return new Promise(function (r) { setTimeout(r, ms); });
+  }
+
+  function getCacheKey(text) {
+    return text.toLowerCase().trim().replace(/\s+/g, ' ').substring(0, 200);
+  }
+
+  function getCachedResponse(key) {
+    var cached = responseCache[key];
+    if (cached && Date.now() - cached.time < CACHE_TTL) return cached.reply;
+    if (cached) delete responseCache[key];
+    return null;
+  }
+
+  function setCachedResponse(key, reply) {
+    var keys = Object.keys(responseCache);
+    if (keys.length > 50) delete responseCache[keys[0]];
+    responseCache[key] = { reply: reply, time: Date.now() };
+  }
+
+  function isModelOnCooldown(model) {
+    var cd = modelCooldowns[model];
+    if (cd && Date.now() < cd) return true;
+    if (cd) delete modelCooldowns[model];
+    return false;
+  }
+
+  function setModelCooldown(model, seconds) {
+    modelCooldowns[model] = Date.now() + seconds * 1000;
   }
 
   // =============================================
-  // RESPOSTAS FALLBACK AMIGAVEIS
-  // (quando tudo falha, o usuario ainda recebe algo util)
+  // RESPOSTAS OFFLINE INTELIGENTES
+  // Quando TODOS os modelos falham, responde
+  // localmente baseado em palavras-chave
   // =============================================
-  var fallbackResponses = {
-    rateLimit:
-      '⏳ Estou recebendo muitas perguntas agora! Aguarde uns 10 segundos e tente novamente.',
-    timeout:
-      '⏱️ Demorei demais para responder. Tente uma pergunta mais curta e direta, por exemplo: "Como economizar no mercado?"',
-    safety:
-      '🔒 Nao posso responder sobre esse assunto. Sou especializado em financas pessoais! Pergunte sobre gastos, economia ou planejamento.',
-    blocked:
-      '🚫 Essa pergunta foi bloqueada pelo filtro de seguranca. Tente reformular! Posso te ajudar com analise de gastos, dicas de economia ou metas financeiras.',
-    empty:
-      '🤔 Nao consegui gerar uma resposta. Tente reformular! Exemplos:\n\n💡 "Analise meus gastos"\n💡 "Como fazer sobrar dinheiro?"\n💡 "Onde posso economizar?"',
-    format:
-      '😅 Nao entendi o formato da pergunta. Tente algo como: "Quanto estou gastando por mes?" ou "Me da dicas para economizar"',
-    network:
-      '🌐 Problema de conexao com o servico de IA. Verifique sua internet e tente novamente.',
-    generic:
-      '⚠️ Tive um problema tecnico. Tente novamente em alguns segundos! Se persistir, recarregue a pagina.'
-  };
+  function getOfflineResponse(userMessage, context) {
+    var msg = (userMessage || '').toLowerCase();
+
+    if (msg.match(/economi[zs]ar|gastar menos|sobrar|poupar|cortar/)) {
+      return '💡 **Dicas rapidas para economizar:**\n\n'
+        + '1. 📋 Anote TODOS os gastos por 30 dias — so de rastrear, voce ja reduz 10-15%\n'
+        + '2. 🛒 Faca lista antes de ir ao mercado e nao va com fome\n'
+        + '3. 📱 Cancele assinaturas que nao usa (Netflix, Spotify, apps)\n'
+        + '4. 🍳 Cozinhe mais em casa — restaurante custa 3-5x mais\n'
+        + '5. 💧 Reduza luz: banho curto, apague luzes, ar-condicionado com timer\n\n'
+        + '⚡ Cadastre suas contas no app para dicas PERSONALIZADAS!';
+    }
+
+    if (msg.match(/analis|gastos|gastando|despesa|resumo|relatorio/)) {
+      if (context && context.trim() && context !== 'Nenhum dado disponivel.') {
+        return '📊 **Seus dados estao cadastrados!**\n\n'
+          + 'O servidor esta ocupado agora, mas aqui vai uma dica:\n\n'
+          + '💡 Revise seus gastos VARIAVEIS — sao os mais faceis de reduzir. '
+          + 'Alimentacao fora, transporte por app e lazer geralmente sao os campeoes.\n\n'
+          + '🔄 Tente novamente em 30 segundos para analise completa com IA!';
+      }
+      return '📊 Para analisar seus gastos, cadastre suas contas e despesas no app primeiro! '
+        + 'Assim consigo te dar um diagnostico completo com dicas personalizadas. 💡';
+    }
+
+    if (msg.match(/divida|devendo|devo|atrasa|pagar conta|quitar|concerto|conserto/)) {
+      return '🔴 **Sobre dividas, priorize assim:**\n\n'
+        + '1. **Essenciais primeiro:** aluguel, luz, agua, alimentacao\n'
+        + '2. **Juros altos depois:** cartao de credito, cheque especial\n'
+        + '3. **Negocie:** ligue pro credor e peca desconto pra pagar a vista\n\n'
+        + '💡 **Dica:** O Serasa Limpa Nome e mutiroes de negociacao podem reduzir dividas em ate 90%!\n\n'
+        + '📌 Se voce recebe menos do que deve, foque primeiro em:\n'
+        + '- Cortar TODO gasto nao essencial temporariamente\n'
+        + '- Buscar renda extra (bico, freelance, vender algo)\n'
+        + '- Negociar parcelas menores com credores\n\n'
+        + '🔄 Tente novamente em 30s para resposta personalizada!';
+    }
+
+    if (msg.match(/reserva|emergencia|guardar|investir|poupan/)) {
+      return '🎯 **Reserva de Emergencia:**\n\n'
+        + 'O ideal e ter **3 a 6 meses** de gastos essenciais guardados.\n\n'
+        + '💡 Comece pequeno: **R$ 50 por semana** = R$ 2.600 em 1 ano!\n\n'
+        + 'Onde guardar:\n'
+        + '- **Tesouro Selic** — rende mais que poupanca, pode sacar quando quiser\n'
+        + '- **CDB liquidez diaria** — similar, veja no seu banco\n\n'
+        + '🔄 Tente novamente em 30s para dicas baseadas nos seus dados!';
+    }
+
+    if (msg.match(/renda extra|ganhar mais|bico|freelance/)) {
+      return '💰 **Ideias de renda extra:**\n\n'
+        + '1. 🚗 Motorista de app (Uber, 99) nos horarios de pico\n'
+        + '2. 📦 Entregas (iFood, Rappi)\n'
+        + '3. 💻 Freelance na sua area (Workana, 99freelas)\n'
+        + '4. 🛍️ Vender coisas que nao usa (OLX, Enjoei)\n'
+        + '5. 📚 Aulas particulares do que voce sabe\n'
+        + '6. 🎨 Rifas e artesanato\n\n'
+        + '💡 Qualquer R$ 500 extra por mes = R$ 6.000 por ano!';
+    }
+
+    if (msg.match(/oi|ola|bom dia|boa tarde|boa noite|hey|eai|tudo bem/)) {
+      return '👋 Ola! Sou o assistente financeiro do FinanceFlow!\n\n'
+        + 'Posso te ajudar com:\n'
+        + '💰 Analisar seus gastos\n'
+        + '💡 Dicas para economizar\n'
+        + '🎯 Metas de poupanca\n'
+        + '📊 Planejamento financeiro\n'
+        + '🔴 Ajuda com dividas\n\n'
+        + 'O que voce gostaria de saber?';
+    }
+
+    if (msg.match(/obrigad|valeu|thanks|brigad/)) {
+      return '😊 De nada! Fico feliz em ajudar!\n\n'
+        + 'Se precisar de mais alguma coisa sobre suas financas, e so perguntar. '
+        + 'Lembre-se de manter seus dados atualizados no app para dicas cada vez melhores! 💡';
+    }
+
+    // Fallback generico
+    return '💡 Estou com dificuldade para acessar a IA agora, mas posso te dizer que as **3 maiores formas de economizar** sao:\n\n'
+      + '1. 🍽️ Reduzir alimentacao fora de casa\n'
+      + '2. 📱 Renegociar contas fixas (internet, celular, seguro)\n'
+      + '3. ✂️ Cortar assinaturas nao essenciais\n\n'
+      + '🔄 Tente sua pergunta novamente em 30 segundos para resposta personalizada com IA!';
+  }
 
   // =============================================
-  // SYSTEM INSTRUCTION COMPLETO E ROBUSTO
+  // SYSTEM INSTRUCTION
   // =============================================
   function buildSystemInstruction(context) {
-    var parts = [
-      'Voce e o ASSISTENTE FINANCEIRO INTELIGENTE do FinanceFlow, o app de controle financeiro pessoal.',
+    return [
+      'Voce e o ASSISTENTE FINANCEIRO do FinanceFlow.',
       '',
-      '═══════════════════════════════════',
-      'SUA PERSONALIDADE',
-      '═══════════════════════════════════',
-      '- Voce e como um amigo que entende muito de financas e fala de forma simples',
-      '- Sempre positivo e encorajador, NUNCA julgue os gastos do usuario',
-      '- Comemore conquistas ("Parabens! Voce economizou X esse mes!")',
-      '- Use humor leve quando apropriado para tornar financas menos chatas',
-      '- Seja empatico quando o usuario estiver com dificuldades financeiras',
+      'PERSONALIDADE: Amigavel, direto, pratico. Como um amigo que entende de financas.',
+      'Nunca julgue gastos. Seja encorajador. Use humor leve.',
       '',
-      '═══════════════════════════════════',
-      'IDIOMA E FORMATO',
-      '═══════════════════════════════════',
-      '- Responda SEMPRE em portugues do Brasil',
-      '- Use **negrito** para destacar valores e pontos-chave',
-      '- Formate valores: R$ 1.500,00 (ponto nos milhares, virgula nos centavos)',
-      '- Use emojis com moderacao para organizar: 💡 dica, 🔴 alerta, 🟢 positivo, 📊 dados, 💰 dinheiro, ⚡ acao',
-      '- Paragrafos curtos (2-3 linhas no maximo)',
-      '- Respostas entre 100 e 400 palavras dependendo da complexidade',
-      '- NAO use titulos com # ou ###, use emojis e **negrito** para organizar',
-      '- NAO repita a pergunta do usuario na resposta',
+      'FORMATO:',
+      '- Portugues do Brasil SEMPRE',
+      '- **negrito** para valores e pontos-chave',
+      '- Valores em R$ (ex: R$ 1.500,00)',
+      '- Emojis moderados: 💡🔴🟢📊💰⚡',
+      '- Paragrafos curtos, 100-400 palavras',
+      '- NAO use ### titulos markdown',
       '',
-      '═══════════════════════════════════',
-      'SUAS ESPECIALIDADES',
-      '═══════════════════════════════════',
-      '1. 📊 ANALISE DE GASTOS: Identificar padroes, comparar categorias, mostrar evolucao',
-      '2. 💡 DICAS DE ECONOMIA: Sugestoes praticas e aplicaveis ao contexto brasileiro',
-      '3. 🔴 ALERTAS: Contas proximas do vencimento, gastos acima da media',
-      '4. 🎯 METAS: Reserva de emergencia, objetivos financeiros, poupanca',
-      '5. 📈 PLANEJAMENTO: Orcamento mensal, regra 50-30-20, divisao de gastos',
-      '6. 🧠 EDUCACAO: Conceitos financeiros (juros compostos, inflacao, Selic) de forma simples',
+      'ESPECIALIDADES: Analise de gastos, dicas de economia, alertas de contas, metas, orcamento, educacao financeira.',
       '',
-      '═══════════════════════════════════',
-      'REGRAS INVIOLAVEIS',
-      '═══════════════════════════════════',
-      '- Use APENAS os dados fornecidos, NUNCA invente numeros ou transacoes',
-      '- Se nao tem dados suficientes, diga: "Cadastre suas contas no app para eu poder te ajudar melhor!"',
-      '- NUNCA recomende investimentos especificos (acoes, cripto, fundos com nome)',
-      '- NUNCA fale sobre assuntos fora de financas pessoais por mais de 1 frase',
-      '- Considere o contexto brasileiro: IPCA, Selic, INSS, FGTS, vale-refeicao, etc.',
-      '- Se nao sabe a resposta, diga honestamente e sugira onde buscar (ex: "consulte um contador")',
-      '- Quando der dicas, inclua o impacto estimado em R$ quando possivel',
+      'REGRAS:',
+      '- Use APENAS dados fornecidos, nunca invente',
+      '- Sem dados = sugira cadastrar no app',
+      '- Nunca recomende investimentos especificos',
+      '- Contexto brasileiro (Selic, IPCA, FGTS)',
+      '- Inclua impacto em R$ quando possivel',
       '',
-      '═══════════════════════════════════',
-      'DADOS FINANCEIROS DO USUARIO',
-      '═══════════════════════════════════',
-      (context && context.trim() !== ''
-        ? context
-        : 'Nenhum dado cadastrado ainda. Incentive o usuario a cadastrar suas contas, despesas e receitas para receber analises personalizadas.')
-    ];
-    return parts.join('\n');
+      'DADOS DO USUARIO:',
+      (context && context.trim() ? context : 'Nenhum dado cadastrado.')
+    ].join('\n');
   }
 
   // =============================================
-  // VALIDACAO E LIMPEZA DAS MENSAGENS
-  // (resolve os erros 400 do Gemini)
+  // LIMPA MENSAGENS (resolve erros 400)
   // =============================================
   function cleanMessages(messages) {
     if (!messages || !Array.isArray(messages)) return [];
 
-    var recent = messages.slice(-15);
-
-    // 1. Filtra mensagens invalidas ou vazias
+    var recent = messages.slice(-12);
     var valid = [];
+
     for (var i = 0; i < recent.length; i++) {
       var msg = recent[i];
-      if (
-        msg &&
-        typeof msg.content === 'string' &&
-        msg.content.trim() !== '' &&
-        (msg.role === 'user' || msg.role === 'assistant')
-      ) {
+      if (msg && typeof msg.content === 'string' && msg.content.trim() &&
+          (msg.role === 'user' || msg.role === 'assistant')) {
         valid.push({
           role: msg.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: msg.content.trim().substring(0, 4000) }]
+          parts: [{ text: msg.content.trim().substring(0, 3000) }]
         });
       }
     }
 
     if (valid.length === 0) return [];
 
-    // 2. Primeira mensagem DEVE ser 'user' (exigencia Gemini)
-    while (valid.length > 0 && valid[0].role !== 'user') {
-      valid.shift();
-    }
+    // Primeira = user
+    while (valid.length > 0 && valid[0].role !== 'user') valid.shift();
 
-    // 3. Mensagens devem ALTERNAR user/model (exigencia Gemini)
-    //    Se duas consecutivas tem o mesmo role, COMBINA o texto
-    var alternated = [];
+    // Alterna user/model
+    var alt = [];
     for (var j = 0; j < valid.length; j++) {
-      if (alternated.length === 0) {
-        alternated.push(valid[j]);
+      if (alt.length === 0 || valid[j].role !== alt[alt.length - 1].role) {
+        alt.push(valid[j]);
       } else {
-        var lastMsg = alternated[alternated.length - 1];
-        if (valid[j].role === lastMsg.role) {
-          lastMsg.parts[0].text += '\n' + valid[j].parts[0].text;
-        } else {
-          alternated.push(valid[j]);
-        }
+        alt[alt.length - 1].parts[0].text += '\n' + valid[j].parts[0].text;
       }
     }
 
-    // 4. Ultima mensagem DEVE ser 'user' (exigencia Gemini)
-    while (alternated.length > 0 && alternated[alternated.length - 1].role !== 'user') {
-      alternated.pop();
-    }
+    // Ultima = user
+    while (alt.length > 0 && alt[alt.length - 1].role !== 'user') alt.pop();
 
-    return alternated;
+    return alt;
   }
 
   // =============================================
-  // CHAMADA AO GEMINI COM RETRY INTELIGENTE
-  // (ate 3 tentativas com espera progressiva)
+  // CHAMADA A UM MODELO ESPECIFICO
   // =============================================
-  async function callGemini(systemInstruction, contents, attempt) {
-    if (!attempt) attempt = 1;
-    var maxAttempts = 3;
+  async function callModel(model, systemInstruction, contents) {
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+      + model + ':generateContent?key=' + apiKey;
 
-    var url =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' +
-      apiKey;
-
-    var controller;
-    var timeoutId;
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function () { controller.abort(); }, 25000);
 
     try {
-      // Timeout progressivo: 30s, 45s, 60s
-      var timeoutMs = 30000 + (attempt - 1) * 15000;
-      controller = new AbortController();
-      timeoutId = setTimeout(function () {
-        controller.abort();
-      }, timeoutMs);
-
       var response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
         body: JSON.stringify({
-          system_instruction: {
-            parts: [{ text: systemInstruction }]
-          },
+          system_instruction: { parts: [{ text: systemInstruction }] },
           contents: contents,
           generationConfig: {
             maxOutputTokens: 8192,
@@ -213,124 +265,84 @@ module.exports = async function handler(req, res) {
 
       clearTimeout(timeoutId);
 
-      // ----- RATE LIMIT (429) -----
       if (response.status === 429) {
-        console.warn('[FinanceFlow] Rate limit, tentativa ' + attempt + '/' + maxAttempts);
-        if (attempt < maxAttempts) {
-          await wait(attempt * 3000);
-          return callGemini(systemInstruction, contents, attempt + 1);
-        }
-        return { ok: false, type: 'rateLimit' };
+        setModelCooldown(model, 60);
+        return { ok: false, type: 'rateLimit', model: model };
       }
-
-      // ----- ERRO 400 (formato) -----
-      if (response.status === 400) {
-        var errBody = '';
-        try { errBody = await response.text(); } catch (e) { /* ignore */ }
-        console.error('[FinanceFlow] Bad request:', errBody);
-        return { ok: false, type: 'format' };
-      }
-
-      // ----- ERRO 403 (api key) -----
-      if (response.status === 403) {
-        console.error('[FinanceFlow] API key invalid');
-        return { ok: false, type: 'auth' };
-      }
-
-      // ----- ERRO 500+ (servidor Gemini) -----
+      if (response.status === 400) return { ok: false, type: 'format' };
+      if (response.status === 403) return { ok: false, type: 'auth' };
       if (response.status >= 500) {
-        console.error('[FinanceFlow] Gemini server error:', response.status);
-        if (attempt < maxAttempts) {
-          await wait(attempt * 2000);
-          return callGemini(systemInstruction, contents, attempt + 1);
-        }
-        return { ok: false, type: 'generic' };
+        setModelCooldown(model, 30);
+        return { ok: false, type: 'serverError' };
       }
+      if (!response.ok) return { ok: false, type: 'generic' };
 
-      // ----- OUTRO ERRO HTTP -----
-      if (!response.ok) {
-        console.error('[FinanceFlow] Unexpected HTTP:', response.status);
-        if (attempt < maxAttempts) {
-          await wait(attempt * 2000);
-          return callGemini(systemInstruction, contents, attempt + 1);
-        }
-        return { ok: false, type: 'generic' };
-      }
-
-      // ----- SUCESSO: PARSE RESPOSTA -----
       var data = await response.json();
 
-      // Prompt bloqueado antes de gerar
       if (data.promptFeedback && data.promptFeedback.blockReason) {
-        console.warn('[FinanceFlow] Prompt blocked:', data.promptFeedback.blockReason);
         return { ok: false, type: 'blocked' };
       }
-
-      // Sem candidates
       if (!data.candidates || data.candidates.length === 0) {
-        console.warn('[FinanceFlow] No candidates');
-        if (attempt < maxAttempts) {
-          await wait(attempt * 1500);
-          return callGemini(systemInstruction, contents, attempt + 1);
-        }
         return { ok: false, type: 'empty' };
       }
 
       var candidate = data.candidates[0];
+      if (candidate.finishReason === 'SAFETY') return { ok: false, type: 'safety' };
+      if (candidate.finishReason === 'RECITATION') return { ok: false, type: 'blocked' };
 
-      // Bloqueado por seguranca
-      if (candidate.finishReason === 'SAFETY') {
-        return { ok: false, type: 'safety' };
-      }
-      if (candidate.finishReason === 'RECITATION') {
-        return { ok: false, type: 'blocked' };
-      }
-
-      // Resposta cortada mas ainda utilizavel
-      if (candidate.finishReason === 'MAX_TOKENS') {
-        console.warn('[FinanceFlow] Response truncated (MAX_TOKENS)');
-      }
-
-      // Extrai texto
       if (candidate.content && candidate.content.parts) {
         var reply = candidate.content.parts
           .map(function (p) { return p.text || ''; })
-          .join('\n')
-          .trim();
-
-        if (reply.length > 0) {
-          return { ok: true, reply: reply };
-        }
+          .join('\n').trim();
+        if (reply.length > 0) return { ok: true, reply: reply, model: model };
       }
 
-      // Resposta vazia — retry
-      if (attempt < maxAttempts) {
-        await wait(attempt * 1500);
-        return callGemini(systemInstruction, contents, attempt + 1);
-      }
       return { ok: false, type: 'empty' };
 
     } catch (err) {
-      if (timeoutId) clearTimeout(timeoutId);
-
-      // Timeout
-      if (err.name === 'AbortError') {
-        console.error('[FinanceFlow] Timeout, tentativa ' + attempt + '/' + maxAttempts);
-        if (attempt < maxAttempts) {
-          await wait(1000);
-          return callGemini(systemInstruction, contents, attempt + 1);
-        }
-        return { ok: false, type: 'timeout' };
-      }
-
-      // Erro de rede
-      console.error('[FinanceFlow] Network error:', err.message);
-      if (attempt < maxAttempts) {
-        await wait(attempt * 2000);
-        return callGemini(systemInstruction, contents, attempt + 1);
-      }
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') return { ok: false, type: 'timeout' };
       return { ok: false, type: 'network' };
     }
+  }
+
+  // =============================================
+  // TENTA TODOS OS MODELOS EM CADEIA
+  // =============================================
+  async function callWithFallback(systemInstruction, contents) {
+    for (var i = 0; i < MODELS.length; i++) {
+      var model = MODELS[i];
+
+      if (isModelOnCooldown(model)) {
+        console.log('[FF] Pulando ' + model + ' (cooldown)');
+        continue;
+      }
+
+      console.log('[FF] Tentando ' + model);
+      var result = await callModel(model, systemInstruction, contents);
+
+      if (result.ok) {
+        console.log('[FF] Sucesso: ' + model);
+        return result;
+      }
+
+      console.warn('[FF] ' + model + ' falhou: ' + result.type);
+
+      // Erros que nao melhoram trocando modelo
+      if (['format', 'auth', 'safety', 'blocked'].indexOf(result.type) !== -1) {
+        return result;
+      }
+
+      if (i < MODELS.length - 1) await wait(1500);
+    }
+
+    // Ultima tentativa: espera e tenta flash-lite
+    console.log('[FF] Ultima tentativa: flash-lite apos 5s');
+    await wait(5000);
+    var last = await callModel('gemini-2.0-flash-lite', systemInstruction, contents);
+    if (last.ok) return last;
+
+    return { ok: false, type: 'allFailed' };
   }
 
   // =============================================
@@ -342,38 +354,62 @@ module.exports = async function handler(req, res) {
     var context = body.context;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({ error: 'Invalid messages array' });
+      return res.status(400).json({ error: 'Invalid messages' });
     }
 
-    // Limpa e valida mensagens
     var contents = cleanMessages(messages);
     if (contents.length === 0) {
       return res.status(200).json({
-        reply: '💬 Nao recebi sua mensagem. Digite algo como "Analise meus gastos" ou "Como economizar?"'
+        reply: '💬 Nao recebi sua mensagem. Tente: "Analise meus gastos" ou "Como economizar?"'
       });
     }
 
-    // Monta system instruction
-    var systemInstruction = buildSystemInstruction(context);
+    // ----- CACHE -----
+    var lastUserMsg = contents[contents.length - 1].parts[0].text;
+    var cacheKey = getCacheKey(lastUserMsg);
+    var cached = getCachedResponse(cacheKey);
+    if (cached) {
+      console.log('[FF] Cache hit');
+      return res.status(200).json({ reply: cached });
+    }
 
-    // Chama Gemini com retry automatico
-    var result = await callGemini(systemInstruction, contents);
+    // ----- CHAMA IA COM FALLBACK -----
+    var systemInstruction = buildSystemInstruction(context);
+    var result = await callWithFallback(systemInstruction, contents);
 
     if (result.ok) {
+      setCachedResponse(cacheKey, result.reply);
       return res.status(200).json({ reply: result.reply });
     }
 
-    // Erro de autenticacao = erro real
     if (result.type === 'auth') {
-      return res.status(500).json({ error: 'API key invalida ou expirada' });
+      return res.status(500).json({ error: 'API key invalida' });
     }
 
-    // Qualquer outro erro = mensagem amigavel
-    var fallback = fallbackResponses[result.type] || fallbackResponses.generic;
-    return res.status(200).json({ reply: fallback });
+    // Safety/blocked = mensagem especifica
+    if (result.type === 'safety') {
+      return res.status(200).json({
+        reply: '🔒 Nao posso responder sobre isso. Sou especializado em financas! Pergunte sobre gastos, economia ou planejamento.'
+      });
+    }
+    if (result.type === 'blocked') {
+      return res.status(200).json({
+        reply: '🚫 Pergunta bloqueada. Tente reformular! Posso ajudar com gastos, economia ou metas.'
+      });
+    }
+
+    // Rate limit / all failed = RESPOSTA OFFLINE INTELIGENTE
+    var offlineReply = getOfflineResponse(lastUserMsg, context);
+    return res.status(200).json({ reply: offlineReply });
 
   } catch (err) {
-    console.error('[FinanceFlow] Unhandled error:', err.message || err);
-    return res.status(200).json({ reply: fallbackResponses.generic });
+    console.error('[FF] Erro critico:', err.message || err);
+    try {
+      var msgs = (req.body && req.body.messages) || [];
+      var last = msgs.length > 0 ? msgs[msgs.length - 1].content : '';
+      return res.status(200).json({ reply: getOfflineResponse(last, '') });
+    } catch (e) {
+      return res.status(200).json({ reply: '⚠️ Erro tecnico. Tente novamente!' });
+    }
   }
 };
