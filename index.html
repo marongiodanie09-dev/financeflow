@@ -1240,6 +1240,7 @@ function closeSaving() {
 }
 
 async function saveSaving() {
+  if (document.getElementById('mSavingSave').disabled) return;
   const sb = window.supabaseClient;
   const name = document.getElementById('sName').value.trim();
   const cat = document.getElementById('sCat').value;
@@ -1247,18 +1248,24 @@ async function saveSaving() {
   const obs = document.getElementById('sObs').value.trim();
   if (!name) { toast('Informe o nome.', 'error'); return; }
   if (!val || val < 0) { toast('Informe um valor válido.', 'error'); return; }
-  const payload = { user_id: CU.id, name, category: cat, amount: val, obs };
-  let error;
-  if (editSavingId) {
-    ({ error } = await sb.from('savings').update(payload).eq('id', editSavingId));
-  } else {
-    ({ error } = await sb.from('savings').insert(payload));
+
+  setBtnLoading('mSavingSave', true);
+  try {
+    const payload = { user_id: CU.id, name, category: cat, amount: val, obs };
+    let error;
+    if (editSavingId) {
+      ({ error } = await sb.from('savings').update(payload).eq('id', editSavingId));
+    } else {
+      ({ error } = await sb.from('savings').insert(payload));
+    }
+    if (error) { toast('Erro ao salvar.', 'error'); console.error(error); return; }
+    toast(editSavingId ? 'Entrada atualizada!' : 'Entrada adicionada!', 'success');
+    closeSaving();
+    await loadSavings();
+    renderPatrimonio();
+  } finally {
+    setBtnLoading('mSavingSave', false, 'Salvar');
   }
-  if (error) { toast('Erro ao salvar.', 'error'); console.error(error); return; }
-  toast(editSavingId ? 'Entrada atualizada!' : 'Entrada adicionada!', 'success');
-  closeSaving();
-  await loadSavings();
-  renderPatrimonio();
 }
 
 async function deleteSaving(id) {
@@ -1391,38 +1398,21 @@ function renderAccList(cid,accs){
 async function togglePaid(id){
   const i = ST.accounts.findIndex(a => a.id === id);
   if (i < 0) return;
-
   const a = ST.accounts[i];
-
   let updated;
-
   if (a.status === 'pago') {
-    updated = {
-      ...a,
-      status: 'pendente',
-      paidDate: null
-    };
+    updated = { ...a, status: 'pendente', paidDate: null };
     toast('Marcado como pendente.', 'info');
   } else {
     const d = new Date();
     const pd = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-
-    updated = {
-      ...a,
-      status: 'pago',
-      paidDate: pd
-    };
+    updated = { ...a, status: 'pago', paidDate: pd };
     toast('Conta marcada como paga.', 'success');
   }
-
   const saved = await updateAccount(id, updated);
   if (!saved) return;
-
   ST.accounts[i] = saved;
-
-  const p = document.querySelector('.page.active')?.id?.replace('page-','');
-  if (p === 'dashboard') renderDash();
-  else if (p) renderPage(p);
+  await reloadAndRender();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1449,7 +1439,27 @@ function closeAccModal(){document.getElementById('mAcc').classList.remove('show'
 document.getElementById('mAccClose').addEventListener('click',closeAccModal);
 document.getElementById('mAccCancel').addEventListener('click',closeAccModal);
 document.getElementById('mAcc').addEventListener('click',e=>{if(e.target===document.getElementById('mAcc'))closeAccModal()});
+// Helper: desabilita botão enquanto salva e reabilita depois
+function setBtnLoading(id, on, txt='Salvar') {
+  const b = document.getElementById(id);
+  if (!b) return;
+  b.disabled = on;
+  b.textContent = on ? 'Salvando...' : txt;
+}
+
+function getActivePage() {
+  return document.querySelector('.page.active')?.id?.replace('page-', '');
+}
+
+async function reloadAndRender() {
+  await loadST();
+  const ap = getActivePage();
+  if (ap) renderPage(ap);
+}
+
 document.getElementById('mAccSave').addEventListener('click', async () => {
+  if (document.getElementById('mAccSave').disabled) return;
+
   const name = document.getElementById('fName').value.trim();
   const cat = document.getElementById('fCat').value;
   const val = parseFloat(document.getElementById('fVal').value);
@@ -1464,85 +1474,36 @@ document.getElementById('mAccSave').addEventListener('click', async () => {
   if (!due) { toast('Informe a data de vencimento.', 'error'); return; }
   if (!type) { toast('Selecione o tipo de pagamento.', 'error'); return; }
 
-  const data = {
-    name: name,
-    category: cat,
-    value: val,
-    dueDate: due,
-    paymentType: type,
-    status: st,
-    observation: obs
-  };
+  setBtnLoading('mAccSave', true);
 
-  if (ST.editId) {
-    const i = ST.accounts.findIndex(a => a.id === ST.editId);
-    if (i < 0) {
-      toast('Conta não encontrada.', 'error');
-      return;
+  const data = { name, category: cat, value: val, dueDate: due, paymentType: type, status: st, observation: obs };
+
+  try {
+    if (ST.editId) {
+      const i = ST.accounts.findIndex(a => a.id === ST.editId);
+      if (i < 0) { toast('Conta não encontrada.', 'error'); return; }
+      const current = ST.accounts[i];
+      const updated = { ...current, ...data, paidDate: st === 'pago' ? (current.paidDate || new Date().toISOString().slice(0,10)) : null };
+      const saved = await updateAccount(ST.editId, updated);
+      if (!saved) return;
+      toast('Conta atualizada!', 'success');
+    } else {
+      const created = await createAccount({ ...data, paidDate: st === 'pago' ? new Date().toISOString().slice(0,10) : null, gid: null, gNum: null, gTotal: null });
+      if (!created) return;
+      toast('Conta cadastrada!', 'success');
     }
-
-    const current = ST.accounts[i];
-
-    const updated = {
-      ...current,
-      ...data,
-      paidDate: st === 'pago'
-        ? (current.paidDate || new Date().toISOString().slice(0,10))
-        : null
-    };
-
-    const saved = await updateAccount(ST.editId, updated);
-    if (!saved) return;
-
-    ST.accounts[i] = saved;
-    toast('Conta atualizada!', 'success');
-
-  } else {
-    const created = await createAccount({
-      ...data,
-      paidDate: st === 'pago'
-        ? new Date().toISOString().slice(0,10)
-        : null,
-      gid: null,
-      gNum: null,
-      gTotal: null
-    });
-
-    if (!created) return;
-
-    ST.accounts.push(created);
-    toast('Conta cadastrada!', 'success');
+    closeAccModal();
+    await reloadAndRender();
+  } finally {
+    setBtnLoading('mAccSave', false, 'Salvar Conta');
   }
-
-  closeAccModal();
-
-  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
-  if (ap) renderPage(ap);
 });
 async function delAcc(id){
-
-  if (!confirm('Excluir esta conta?'))
-    return;
-
+  if (!confirm('Excluir esta conta?')) return;
   const ok = await deleteAccount(id);
-
-  if (!ok)
-    return;
-
-  ST.accounts =
-    ST.accounts.filter(a => a.id !== id);
-
+  if (!ok) return;
   toast('Conta excluída.', 'info');
-
-  const ap =
-    document
-      .querySelector('.page.active')
-      ?.id
-      .replace('page-','');
-
-  if (ap)
-    renderPage(ap);
-
+  await reloadAndRender();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1562,6 +1523,8 @@ document.getElementById('btnNewInst').addEventListener('click',()=>{
   document.getElementById('mInst').classList.add('show');
 });
 document.getElementById('mInstSave').addEventListener('click', async () => {
+  if (document.getElementById('mInstSave').disabled) return;
+
   const name = document.getElementById('iName').value.trim();
   const total = parseFloat(document.getElementById('iTotal').value);
   const cnt = parseInt(document.getElementById('iCount').value);
@@ -1576,49 +1539,30 @@ document.getElementById('mInstSave').addEventListener('click', async () => {
   if (!start) { toast('Informe o mês inicial.', 'error'); return; }
   if (!cat) { toast('Selecione uma categoria.', 'error'); return; }
 
-  const gid = _uid();
+  setBtnLoading('mInstSave', true, 'Criar Parcelas');
 
-  ST.groups.push({
-    id: gid,
-    name,
-    totalValue: total,
-    installmentCount: cnt,
-    installmentValue: iv,
-    startMonth: start,
-    category: cat,
-    paymentType: type
-  });
+  try {
+    const gid = _uid();
+    ST.groups.push({ id: gid, name, totalValue: total, installmentCount: cnt, installmentValue: iv, startMonth: start, category: cat, paymentType: type });
 
-  for (let i = 1; i <= cnt; i++) {
-    const mo = addM(start, i - 1);
-    const [y, m] = mo.split('-');
-    const due = `${y}-${m}-10`;
-
-    const created = await createAccount({
-      name: `${name} (${i}/${cnt})`,
-      category: cat,
-      value: iv,
-      dueDate: due,
-      paymentType: type,
-      status: checkLate({ status: 'pendente', dueDate: due }).status,
-      observation: '',
-      paidDate: null,
-      gid: gid,
-      gNum: i,
-      gTotal: cnt
-    });
-
-    if (created) {
-      ST.accounts.push(created);
+    for (let i = 1; i <= cnt; i++) {
+      const mo = addM(start, i - 1);
+      const [y, m] = mo.split('-');
+      const due = `${y}-${m}-10`;
+      const created = await createAccount({
+        name: `${name} (${i}/${cnt})`, category: cat, value: iv, dueDate: due,
+        paymentType: type, status: checkLate({ status: 'pendente', dueDate: due }).status,
+        observation: '', paidDate: null, gid, gNum: i, gTotal: cnt
+      });
+      if (created) ST.accounts.push(created);
     }
+
+    closeInstModal();
+    toast(`${cnt} parcelas criadas!`, 'success');
+    await reloadAndRender();
+  } finally {
+    setBtnLoading('mInstSave', false, 'Criar Parcelas');
   }
-
-  closeInstModal();
-  toast(`${cnt} parcelas criadas!`, 'success');
-
-  const ap = document.querySelector('.page.active')?.id?.replace('page-', '');
-  if (ap === 'installments') renderInstallments();
-  else if (ap) renderPage(ap);
 });
 
 function renderInstallments(){
@@ -1635,40 +1579,20 @@ function renderInstallments(){
 function toggleIg(id){document.getElementById('igb-'+id)?.classList.toggle('open');document.getElementById('igt-'+id)?.classList.toggle('open')}
 async function delInstGroup(gid){
   if (!confirm('Excluir este grupo e todas as parcelas?')) return;
-
   const items = ST.accounts.filter(a => a.gid === gid);
-
   for (const item of items) {
     const ok = await deleteAccount(item.id);
     if (!ok) return;
   }
-
-  ST.accounts = ST.accounts.filter(a => a.gid !== gid);
-  ST.groups = ST.groups.filter(g => g.id !== gid);
-
   toast('Grupo de parcelas excluído.', 'info');
-
-  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
-  if (ap === 'installments') renderInstallments();
-  else if (ap) renderPage(ap);
+  await reloadAndRender();
 }
 async function delInstItem(aid,gid){
   if (!confirm('Excluir esta parcela?')) return;
-
   const ok = await deleteAccount(aid);
   if (!ok) return;
-
-  ST.accounts = ST.accounts.filter(a => a.id !== aid);
-
-  if (!ST.accounts.filter(a => a.gid === gid).length) {
-    ST.groups = ST.groups.filter(g => g.id !== gid);
-  }
-
   toast('Parcela excluída.', 'info');
-
-  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
-  if (ap === 'installments') renderInstallments();
-  else if (ap) renderPage(ap);
+  await reloadAndRender();
 }
 
 // ═══════════════════════════════════════════════════════════
