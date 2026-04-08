@@ -77,12 +77,13 @@ html{font-size:15px}body{font-family:'Plus Jakarta Sans',sans-serif;background:v
 
 /* TABLE */
 .tw{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;overflow-x:auto}
-table{width:100%;border-collapse:collapse;min-width:820px}
+table{width:100%;border-collapse:collapse;min-width:1000px}
 thead{background:var(--bg3);border-bottom:1px solid var(--border)}
 th{padding:12px 16px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);text-align:left;white-space:nowrap}
 td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:.85rem}
 tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:rgba(255,255,255,.02)}
 .cm{font-family:'Space Mono',monospace;font-size:.75rem;color:var(--text2)}
+td small{color:var(--text2);font-size:.7rem}
 .uc{display:flex;align-items:center;gap:10px}
 .av{width:32px;height:32px;background:linear-gradient(135deg,#7c3aed,var(--accent));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;color:#fff;flex-shrink:0;font-family:'Space Mono',monospace}
 .un{font-weight:600;font-size:.88rem}.ue{font-size:.73rem;color:var(--text3);font-family:'Space Mono',monospace}.uobs{font-size:.7rem;color:var(--text3);font-style:italic;margin-top:1px}
@@ -220,7 +221,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5);cursor:p
       </div>
       <div class="tw">
         <table><thead><tr>
-          <th>Usuário</th><th>Plano</th><th>Status</th>
+          <th>Usuário</th><th>E-mail</th><th>Plano</th><th>Status</th>
           <th>Cadastro</th><th>Expiração</th><th>Último acesso</th>
           <th style="text-align:center">Ações</th>
         </tr></thead>
@@ -608,11 +609,13 @@ if (u.dataExpiracao) {
     et = `<span style="color:var(--yellow)">${fd(u.dataExpiracao)}<br><small>Vence amanhã</small></span>`;
   } else if (dias <= 3) {
     et = `<span style="color:var(--yellow)">${fd(u.dataExpiracao)}<br><small>Vence em ${dias} dias</small></span>`;
+  } else if (dias <= 30) {
+    et = `${fd(u.dataExpiracao)}<br><small style="color:var(--accent);font-size:.72rem">${dias} dias restantes</small>`;
   } else {
-    et = `${fd(u.dataExpiracao)}<br><small>${dias} dias restantes</small>`;
+    et = `${fd(u.dataExpiracao)}<br><small style="color:var(--text);font-size:.72rem;opacity:.7">${dias} dias restantes</small>`;
   }
 }
-    return `<tr><td><div class="uc"><div class="av">${ini(u.nome)}</div><div><div class="un">${u.nome}</div><div class="ue">${u.email}</div>${u.observacao?`<div class="uobs">${u.observacao}</div>`:''}</div></div></td><td><span class="pb ${u.plano}">${u.plano}</span></td><td><span class="sb sb-${u.statusPagamento}">${u.statusPagamento}</span></td><td class="cm">${fd(u.dataCadastro)}</td><td class="cm">${et}</td><td class="cm">${u.ultimoAcesso?fd(u.ultimoAcesso):'—'}</td><td><div class="abs"><button class="ab edit" onclick="openEdit('${u.id}')">✎</button><button class="ab del" onclick="openDel('${u.id}')">🗑</button></div></td></tr>`;
+    return `<tr><td><div class="uc"><div class="av">${ini(u.nome)}</div><div><div class="un">${u.nome}</div>${u.observacao?`<div class="uobs">${u.observacao}</div>`:''}</div></div></td><td class="cm" style="color:var(--text2)">${u.email||'—'}</td><td><span class="pb ${u.plano}">${u.plano}</span></td><td><span class="sb sb-${u.statusPagamento}">${u.statusPagamento}</span></td><td class="cm">${fd(u.dataCadastro)}</td><td class="cm">${et}</td><td class="cm">${u.ultimoAcesso ? `<span style="color:var(--text)">${fdt(u.ultimoAcesso)}</span>` : '<span style="color:var(--text3);font-style:italic;font-size:.75rem">Nunca acessou</span>'}</td><td><div class="abs"><button class="ab edit" onclick="openEdit('${u.id}')">✎</button><button class="ab del" onclick="openDel('${u.id}')">🗑</button></div></td></tr>`;
   }).join('');
 
   renderStats('sg1');
@@ -941,6 +944,30 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   if (!confirm('Sair do painel?')) return;
   await sb.auth.signOut();
   initLogin();
+});
+
+// ── REGISTRA ULTIMO ACESSO ─────────────────────────────────
+// Atualiza ultimo_acesso no perfil sempre que uma sessão for detectada.
+// Isso funciona para qualquer usuário (admin ou não) que fizer login.
+sb.auth.onAuthStateChange(async (event, session) => {
+  if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user?.id) {
+    await sb
+      .from('profiles')
+      .update({ ultimo_acesso: new Date().toISOString() })
+      .eq('id', session.user.id);
+  }
+});
+
+// ── REGISTRAR ÚLTIMO ACESSO ────────────────────────────────
+// Atualiza ultimo_acesso do usuário autenticado ao entrar no sistema.
+// Cole este listener também no seu arquivo principal (index.html/app.js):
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && session?.user) {
+    await sb
+      .from('profiles')
+      .update({ ultimo_acesso: new Date().toISOString() })
+      .eq('id', session.user.id);
+  }
 });
 
 // ── INIT ───────────────────────────────────────────────────
