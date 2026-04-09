@@ -1628,7 +1628,7 @@ document.getElementById('btnCSV').addEventListener('click',()=>{
 // ═══════════════════════════════════════════════════════════
 // LOGOUT + SIDEBAR
 // ═══════════════════════════════════════════════════════════
-document.getElementById('btnLogout').addEventListener('click',()=>{if(!confirm('Deseja sair?'))return;resetChat();Auth.logout();toast('Sessão encerrada.','info');setTimeout(()=>goTo('s-login'),600)});
+document.getElementById('btnLogout').addEventListener('click',()=>{if(!confirm('Deseja sair?'))return;try{resetChat()}catch(e){}Auth.logout();toast('Sessão encerrada.','info');setTimeout(()=>goTo('s-login'),600)});
 function openSb(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('show')}
 function closeSb(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show')}
 document.getElementById('menuToggle').addEventListener('click',openSb);document.getElementById('sbClose').addEventListener('click',closeSb);document.getElementById('overlay').addEventListener('click',closeSb);
@@ -1793,7 +1793,7 @@ const chatHistory = [];
 function resetChat() {
   chatHistory.length = 0;
   const container = document.getElementById('chatMsgs');
-  container.innerHTML = '<div class="chat-msg bot">Olá! Sou seu assistente financeiro. Posso analisar seus gastos, dar dicas de economia e ajudar a organizar suas finanças. Como posso te ajudar?</div>';
+  if (container) container.innerHTML = '<div class="chat-msg bot">Olá! Sou seu assistente financeiro. Posso analisar seus gastos, dar dicas de economia e ajudar a organizar suas finanças. Como posso te ajudar?</div>';
   const sugs = document.getElementById('chatSugs');
   if (sugs) sugs.style.display = '';
   const panel = document.getElementById('chatPanel');
@@ -1949,7 +1949,7 @@ document.getElementById('chatInput').addEventListener('keydown', e => {
 // Show chat FAB when user is logged in
 const _origInitDash = initDash;
 initDash = async function() {
-  resetChat();
+  try { resetChat(); } catch(e) {}
   await _origInitDash();
   showChatFab();
 };
