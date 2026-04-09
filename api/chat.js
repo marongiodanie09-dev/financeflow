@@ -1,6 +1,6 @@
 // =============================================
-// FINANCE FLOW - CHAT IA BLINDADO v3
-// Cadeia de modelos fallback + cache + offline
+// FINANCE FLOW - CHAT IA BLINDADO v4
+// Gemini (primario) + ChatGPT (fallback) + cache + offline
 // =============================================
 
 // Cache em memoria para evitar chamadas repetidas
@@ -18,20 +18,24 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  var apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+  var geminiKey = process.env.GEMINI_API_KEY;
+  var openaiKey = process.env.OPENAI_API_KEY;
+
+  if (!geminiKey && !openaiKey) {
+    return res.status(500).json({ error: 'Nenhuma API key configurada' });
   }
 
   // =============================================
   // MODELOS EM ORDEM DE PREFERENCIA
-  // Se um da rate limit, pula pro proximo
+  // Gemini primeiro (gratis), ChatGPT por ultimo (pago)
   // =============================================
-  var MODELS = [
+  var GEMINI_MODELS = [
     'gemini-2.0-flash',       // 15 RPM free — principal
     'gemini-2.0-flash-lite',  // 30 RPM free — mais leve, mais quota
     'gemini-1.5-flash'        // 15 RPM free — fallback estavel
   ];
+
+  var OPENAI_MODEL = 'gpt-4o-mini'; // Barato e rapido — so usa se Gemini falhar
 
   // =============================================
   // UTILIDADES
@@ -158,7 +162,7 @@ module.exports = async function handler(req, res) {
   }
 
   // =============================================
-  // SYSTEM INSTRUCTION
+  // SYSTEM INSTRUCTION (compartilhado Gemini + OpenAI)
   // =============================================
   function buildSystemInstruction(context) {
     return [
@@ -190,9 +194,9 @@ module.exports = async function handler(req, res) {
   }
 
   // =============================================
-  // LIMPA MENSAGENS (resolve erros 400)
+  // LIMPA MENSAGENS PARA GEMINI
   // =============================================
-  function cleanMessages(messages) {
+  function cleanMessagesGemini(messages) {
     if (!messages || !Array.isArray(messages)) return [];
 
     var recent = messages.slice(-12);
@@ -231,11 +235,42 @@ module.exports = async function handler(req, res) {
   }
 
   // =============================================
-  // CHAMADA A UM MODELO ESPECIFICO
+  // LIMPA MENSAGENS PARA OPENAI (ChatGPT)
   // =============================================
-  async function callModel(model, systemInstruction, contents) {
+  function cleanMessagesOpenAI(messages) {
+    if (!messages || !Array.isArray(messages)) return [];
+
+    var recent = messages.slice(-12);
+    var valid = [];
+
+    for (var i = 0; i < recent.length; i++) {
+      var msg = recent[i];
+      if (msg && typeof msg.content === 'string' && msg.content.trim() &&
+          (msg.role === 'user' || msg.role === 'assistant')) {
+        valid.push({
+          role: msg.role,
+          content: msg.content.trim().substring(0, 3000)
+        });
+      }
+    }
+
+    if (valid.length === 0) return [];
+
+    // Primeira = user
+    while (valid.length > 0 && valid[0].role !== 'user') valid.shift();
+
+    // Ultima = user
+    while (valid.length > 0 && valid[valid.length - 1].role !== 'user') valid.pop();
+
+    return valid;
+  }
+
+  // =============================================
+  // CHAMADA GEMINI
+  // =============================================
+  async function callGemini(model, systemInstruction, contents) {
     var url = 'https://generativelanguage.googleapis.com/v1beta/models/'
-      + model + ':generateContent?key=' + apiKey;
+      + model + ':generateContent?key=' + geminiKey;
 
     var controller = new AbortController();
     var timeoutId = setTimeout(function () { controller.abort(); }, 25000);
@@ -307,40 +342,135 @@ module.exports = async function handler(req, res) {
   }
 
   // =============================================
-  // TENTA TODOS OS MODELOS EM CADEIA
+  // CHAMADA OPENAI (ChatGPT)
   // =============================================
-  async function callWithFallback(systemInstruction, contents) {
-    for (var i = 0; i < MODELS.length; i++) {
-      var model = MODELS[i];
+  async function callOpenAI(systemInstruction, openaiMessages) {
+    if (!openaiKey) return { ok: false, type: 'noKey' };
+    if (isModelOnCooldown('openai')) return { ok: false, type: 'cooldown' };
 
-      if (isModelOnCooldown(model)) {
-        console.log('[FF] Pulando ' + model + ' (cooldown)');
-        continue;
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function () { controller.abort(); }, 30000);
+
+    try {
+      var body = {
+        model: OPENAI_MODEL,
+        messages: [
+          { role: 'system', content: systemInstruction }
+        ].concat(openaiMessages),
+        max_tokens: 2048,
+        temperature: 0.7,
+        top_p: 0.9
+      };
+
+      var response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + openaiKey
+        },
+        signal: controller.signal,
+        body: JSON.stringify(body)
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.status === 429) {
+        setModelCooldown('openai', 60);
+        return { ok: false, type: 'rateLimit' };
+      }
+      if (response.status === 401 || response.status === 403) {
+        return { ok: false, type: 'auth' };
+      }
+      if (response.status >= 500) {
+        setModelCooldown('openai', 30);
+        return { ok: false, type: 'serverError' };
+      }
+      if (!response.ok) return { ok: false, type: 'generic' };
+
+      var data = await response.json();
+
+      if (!data.choices || data.choices.length === 0) {
+        return { ok: false, type: 'empty' };
       }
 
-      console.log('[FF] Tentando ' + model);
-      var result = await callModel(model, systemInstruction, contents);
-
-      if (result.ok) {
-        console.log('[FF] Sucesso: ' + model);
-        return result;
+      var reply = (data.choices[0].message && data.choices[0].message.content || '').trim();
+      if (reply.length > 0) {
+        return { ok: true, reply: reply, model: OPENAI_MODEL };
       }
 
-      console.warn('[FF] ' + model + ' falhou: ' + result.type);
+      return { ok: false, type: 'empty' };
 
-      // Erros que nao melhoram trocando modelo
-      if (['format', 'auth', 'safety', 'blocked'].indexOf(result.type) !== -1) {
-        return result;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') return { ok: false, type: 'timeout' };
+      return { ok: false, type: 'network' };
+    }
+  }
+
+  // =============================================
+  // CADEIA COMPLETA DE FALLBACK
+  // Gemini (3 modelos gratis) → ChatGPT (pago)
+  // Troca silenciosa, sem erro visivel
+  // =============================================
+  async function callWithFallback(systemInstruction, geminiContents, openaiMessages) {
+    var geminiAvailable = !!geminiKey;
+    var openaiAvailable = !!openaiKey;
+
+    // --- FASE 1: Tentar todos os modelos Gemini ---
+    if (geminiAvailable) {
+      for (var i = 0; i < GEMINI_MODELS.length; i++) {
+        var model = GEMINI_MODELS[i];
+
+        if (isModelOnCooldown(model)) {
+          console.log('[FF] Pulando ' + model + ' (cooldown)');
+          continue;
+        }
+
+        console.log('[FF] Tentando ' + model);
+        var result = await callGemini(model, systemInstruction, geminiContents);
+
+        if (result.ok) {
+          console.log('[FF] Sucesso: ' + model);
+          return result;
+        }
+
+        console.warn('[FF] ' + model + ' falhou: ' + result.type);
+
+        // Erros de conteudo — nao adianta trocar modelo
+        if (['safety', 'blocked'].indexOf(result.type) !== -1) {
+          return result;
+        }
+
+        // Erro de formato — tenta OpenAI direto (formato diferente)
+        if (result.type === 'format') break;
+
+        // Erro de auth Gemini — pula pra OpenAI
+        if (result.type === 'auth') break;
+
+        if (i < GEMINI_MODELS.length - 1) await wait(1000);
       }
-
-      if (i < MODELS.length - 1) await wait(1500);
     }
 
-    // Ultima tentativa: espera e tenta flash-lite
-    console.log('[FF] Ultima tentativa: flash-lite apos 5s');
-    await wait(5000);
-    var last = await callModel('gemini-2.0-flash-lite', systemInstruction, contents);
-    if (last.ok) return last;
+    // --- FASE 2: ChatGPT como fallback silencioso ---
+    if (openaiAvailable) {
+      console.log('[FF] Gemini indisponivel, tentando ChatGPT (' + OPENAI_MODEL + ')');
+      var openaiResult = await callOpenAI(systemInstruction, openaiMessages);
+
+      if (openaiResult.ok) {
+        console.log('[FF] Sucesso: ChatGPT ' + OPENAI_MODEL);
+        return openaiResult;
+      }
+
+      console.warn('[FF] ChatGPT falhou: ' + openaiResult.type);
+    }
+
+    // --- FASE 3: Ultima tentativa Gemini (flash-lite apos espera) ---
+    if (geminiAvailable && !isModelOnCooldown('gemini-2.0-flash-lite')) {
+      console.log('[FF] Ultima tentativa: flash-lite apos 5s');
+      await wait(5000);
+      var last = await callGemini('gemini-2.0-flash-lite', systemInstruction, geminiContents);
+      if (last.ok) return last;
+    }
 
     return { ok: false, type: 'allFailed' };
   }
@@ -357,15 +487,24 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid messages' });
     }
 
-    var contents = cleanMessages(messages);
-    if (contents.length === 0) {
+    // Prepara mensagens nos 2 formatos (Gemini + OpenAI)
+    var geminiContents = cleanMessagesGemini(messages);
+    var openaiMessages = cleanMessagesOpenAI(messages);
+
+    if (geminiContents.length === 0 && openaiMessages.length === 0) {
       return res.status(200).json({
         reply: '💬 Nao recebi sua mensagem. Tente: "Analise meus gastos" ou "Como economizar?"'
       });
     }
 
     // ----- CACHE -----
-    var lastUserMsg = contents[contents.length - 1].parts[0].text;
+    var lastUserMsg = '';
+    if (geminiContents.length > 0) {
+      lastUserMsg = geminiContents[geminiContents.length - 1].parts[0].text;
+    } else if (openaiMessages.length > 0) {
+      lastUserMsg = openaiMessages[openaiMessages.length - 1].content;
+    }
+
     var cacheKey = getCacheKey(lastUserMsg);
     var cached = getCachedResponse(cacheKey);
     if (cached) {
@@ -373,20 +512,16 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ reply: cached });
     }
 
-    // ----- CHAMA IA COM FALLBACK -----
+    // ----- CHAMA IA COM FALLBACK COMPLETO -----
     var systemInstruction = buildSystemInstruction(context);
-    var result = await callWithFallback(systemInstruction, contents);
+    var result = await callWithFallback(systemInstruction, geminiContents, openaiMessages);
 
     if (result.ok) {
       setCachedResponse(cacheKey, result.reply);
       return res.status(200).json({ reply: result.reply });
     }
 
-    if (result.type === 'auth') {
-      return res.status(500).json({ error: 'API key invalida' });
-    }
-
-    // Safety/blocked = mensagem especifica
+    // Safety/blocked = mensagem especifica (nao e erro, e filtro)
     if (result.type === 'safety') {
       return res.status(200).json({
         reply: '🔒 Nao posso responder sobre isso. Sou especializado em financas! Pergunte sobre gastos, economia ou planejamento.'
@@ -398,7 +533,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Rate limit / all failed = RESPOSTA OFFLINE INTELIGENTE
+    // Tudo falhou = RESPOSTA OFFLINE INTELIGENTE (sem erro visivel)
     var offlineReply = getOfflineResponse(lastUserMsg, context);
     return res.status(200).json({ reply: offlineReply });
 
