@@ -788,17 +788,26 @@ async function loadST() {
         installmentValue: a.value,
         startMonth: '',
         category: a.category,
-        paymentType: a.paymentType
+        paymentType: a.paymentType,
+        _minNum: a.gNum || 999
       };
     }
     groupMap[a.gid].totalValue += a.value;
-    // Determinar o mês inicial (menor gNum = primeira parcela)
-    if (a.gNum === 1 && a.dueDate) {
-      const [y, m] = a.dueDate.split('-');
-      groupMap[a.gid].startMonth = `${y}-${m}`;
+    // Determinar o mês inicial (parcela com menor gNum)
+    if (a.gNum && a.gNum < groupMap[a.gid]._minNum) {
+      groupMap[a.gid]._minNum = a.gNum;
+      if (a.dueDate) {
+        const [y, m] = a.dueDate.split('-');
+        groupMap[a.gid].startMonth = `${y}-${m}`;
+      }
     }
   });
-  ST.groups = Object.values(groupMap);
+  // Recalcular totalValue como installmentValue * installmentCount para manter consistência
+  ST.groups = Object.values(groupMap).map(g => {
+    g.totalValue = g.installmentValue * g.installmentCount;
+    delete g._minNum;
+    return g;
+  });
 
   ST.income = {};
   (incomeRows || []).forEach(row => {
