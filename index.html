@@ -1997,6 +1997,31 @@ async function sendChat() {
     : todasLinhas.filter(l => /^[*\-•]/.test(l));
   if (linhas.length > 1) {
     typingMsg.remove();
+
+    // Validar se pelo menos metade dos itens tem nome + valor reconhecíveis
+    let validos = 0;
+    for (const l of linhas) {
+      const ex = await extractAccountFromText('cria ' + l.replace(/^[*\-•]\s*/, ''));
+      if (ex && ex.name !== 'Conta' && ex.value > 0) validos++;
+    }
+
+    if (validos < Math.ceil(linhas.length / 2)) {
+      const ajuda = `Não consegui identificar os dados corretamente. 😅<br><br>`
+        + `Para criar várias contas de uma vez, use um destes formatos:<br><br>`
+        + `<strong>📌 Formato recomendado (uma por linha):</strong><br>`
+        + `<code>Netflix – R$ 55,00 – 1x – dia 10</code><br>`
+        + `<code>Aluguel – R$ 1.200,00 – dia 5</code><br>`
+        + `<code>TV – R$ 1.800,00 – 6x – dia 15</code><br><br>`
+        + `<strong>📌 Formato simples:</strong><br>`
+        + `<code>Netflix R$ 55 dia 10</code><br>`
+        + `<code>TV R$ 1800 6x dia 15</code><br><br>`
+        + `💡 O importante é ter o <strong>nome</strong>, o <strong>valor (R$)</strong> e, se parcelado, o <strong>número de parcelas (ex: 6x)</strong> em cada linha.`;
+      addChatMsg(ajuda, 'bot');
+      chatHistory.pop();
+      sendBtn.disabled = false;
+      return;
+    }
+
     addChatMsg(`📋 Detectei <strong>${linhas.length} itens</strong> na lista. Criando...`, 'bot');
 
     let totalCriadas = 0;
@@ -2055,6 +2080,21 @@ async function sendChat() {
     try {
       const extracted = await extractAccountFromText(text);
       if (extracted) {
+        // Se nome ficou genérico e valor parece errado, orientar
+        if (extracted.name === 'Conta' && extracted.value < 1) {
+          typingMsg.remove();
+          addChatMsg(
+            `Não consegui identificar os dados. 😅 Tente assim:<br><br>`
+            + `<strong>Conta simples:</strong> <code>Adiciona Netflix R$ 55 dia 10</code><br>`
+            + `<strong>Parcelado:</strong> <code>Adiciona TV R$ 1.800 6x dia 15</code><br><br>`
+            + `💡 Preciso do <strong>nome</strong> e do <strong>valor</strong> para criar a conta.`,
+            'bot'
+          );
+          chatHistory.pop();
+          sendBtn.disabled = false;
+          return;
+        }
+
         typingMsg.remove();
 
         // ── PARCELADO ──
