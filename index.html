@@ -1971,12 +1971,17 @@ async function sendChat() {
   chatHistory.push({ role: 'user', content: text });
 
   // ── Detectar lista em lote (múltiplas linhas com * ou -) ──
-  // Normalizar: se vier tudo numa linha, tentar quebrar por padrões de separação
-  let textoNormalizado = text;
-  // Quebrar quando houver padrão "... Vencimento: dia X NomeSeguinte" ou "... dia X NomeSeguinte –"
-  textoNormalizado = textoNormalizado
-    .replace(/(?<=dia\s+\d{1,2})\s+(?=[A-ZÀ-Ú][a-zà-ú])/g, '\n')  // "dia 15 Notebook" → quebra
-    .replace(/(?<=\d{1,2}[xX])\s+(?=[A-ZÀ-Ú][a-zà-ú])/g, '\n');    // "6x Notebook" → quebra
+  // Normalizar: quebrar texto em linha única por padrões que indicam início de novo item
+  // Ex: "dia 15 Notebook Dell" ou "6x Notebook" ou "À vista Fatura"
+  let textoNormalizado = text
+    // Após "dia NN" seguido de letra maiúscula (novo item)
+    .replace(/(dia\s+\d{1,2})\s+(?=[A-ZÀ-Ú])/g, '$1\n')
+    // Após "NNx" ou "NN vezes" seguido de letra maiúscula
+    .replace(/(\d{1,2}\s*[xX])\s+(?=[A-ZÀ-Ú])/g, '$1\n')
+    // Após "À vista" seguido de letra maiúscula
+    .replace(/(à vista)\s+(?=[A-ZÀ-Ú])/gi, '$1\n')
+    // Após "Vencimento: dia NN" no meio da linha
+    .replace(/(Vencimento:\s*dia\s*\d{1,2})\s+(?=[A-ZÀ-Ú])/gi, '$1\n');
 
   const todasLinhas = textoNormalizado.split('\n').map(l => l.trim()).filter(Boolean);
   // Detecta lista: marcadores clássicos OU linhas que parecem contas (têm valor numérico ou parcelas)
