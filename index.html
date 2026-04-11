@@ -1544,10 +1544,38 @@ document.getElementById('mAccSave').addEventListener('click', async () => {
   }
 });
 async function delAcc(id){
-  if (!confirm('Excluir esta conta?')) return;
-  const ok = await deleteAccount(id);
-  if (!ok) return;
-  toast('Conta excluída.', 'info');
+  const conta = ST.accounts.find(a => a.id === id);
+
+  // Se for parcela de um grupo, perguntar se quer excluir só essa ou o grupo todo
+  if (conta && conta.gid) {
+    const grupo = ST.accounts.filter(a => a.gid === conta.gid);
+    const opcao = confirm(
+      `Esta conta é a parcela ${conta.gNum}/${conta.gTotal} de um grupo com ${grupo.length} parcelas.\n\n` +
+      `Clique OK para excluir o GRUPO INTEIRO (todas as ${grupo.length} parcelas).\n` +
+      `Clique Cancelar para excluir SOMENTE esta parcela.`
+    );
+
+    if (opcao) {
+      // Excluir grupo inteiro
+      let erros = 0;
+      for (const item of grupo) {
+        const ok = await deleteAccount(item.id);
+        if (!ok) erros++;
+      }
+      toast(erros === 0 ? 'Grupo excluído!' : `${grupo.length - erros} parcelas excluídas.`, 'info');
+    } else {
+      // Excluir só essa parcela
+      const ok = await deleteAccount(id);
+      if (!ok) return;
+      toast('Parcela excluída.', 'info');
+    }
+  } else {
+    if (!confirm('Excluir esta conta?')) return;
+    const ok = await deleteAccount(id);
+    if (!ok) return;
+    toast('Conta excluída.', 'info');
+  }
+
   await reloadAndRender();
 }
 
@@ -2258,7 +2286,8 @@ async function extractAccountFromText(text) {
   let name = 'Conta';
 
   // Formato lista: "Notebook Dell – R$ 4.200,00" ou "Notebook Dell: R$ 4.200,00"
-  const mDash = t.match(/^(.+?)\s*[–—:\-]\s*R\$/i);
+  // Prioriza traço longo (–) e dois pontos, evita hífen simples (-) que pode ser parte do nome
+  const mDash = t.match(/^(.+?)\s*[–—:]\s*R\$/i) || t.match(/^(.+?)\s+-\s+R\$/i);
   if (mDash) {
     name = mDash[1].replace(/^(cria|adiciona|cadastra|insere|coloca)\s+/i, '').trim();
   }
@@ -2369,7 +2398,12 @@ async function criarContasDaResposta(itens, confirmId) {
 
   for (const linha of itens) {
     try {
-      const ex = await extractAccountFromText('cria ' + linha);
+      // Limpar prefixos numéricos e passar sem "cria" para não confundir o nome
+      const linhaLimpa = linha
+        .replace(/^\d+[.)\s]+/, '')  // remove "1. " "2) "
+        .replace(/^[*\-•]\s*/, '')    // remove "* " "- "
+        .trim();
+      const ex = await extractAccountFromText(linhaLimpa);
       if (!ex) { erros++; continue; }
 
       if (ex._parcelas && ex._parcelas > 1) {
