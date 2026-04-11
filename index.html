@@ -1988,6 +1988,21 @@ async function sendChat() {
 }
 
 document.getElementById('chatSend').addEventListener('click', sendChat);
+
+// ── TOGGLE SENHA (mostrar/ocultar) ──
+function setupEye(btnId, inputId) {
+  const btn = document.getElementById(btnId);
+  const inp = document.getElementById(inputId);
+  if (!btn || !inp) return;
+  btn.addEventListener('click', function() {
+    const visible = inp.type === 'text';
+    inp.type = visible ? 'password' : 'text';
+    btn.textContent = visible ? '👁' : '🙈';
+  });
+}
+setupEye('lEye',     'lSenha');
+setupEye('cEye',     'cSenha');
+setupEye('cConfEye', 'cConf');
 document.getElementById('chatInput').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
