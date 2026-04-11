@@ -2230,9 +2230,13 @@ async function sendChat() {
     const reply = data.reply || 'Desculpe, não consegui processar sua pergunta.';
 
     // ── Detectar se a resposta do Gemini contém uma lista de contas para criar ──
+    // Ignorar se a mensagem do usuário tinha intenção de apagar/remover
+    const ultimaMsg = chatHistory.length > 0 ? chatHistory[chatHistory.length - 1].content : '';
+    const intencaoExcluir = /apag|delet|remov|exclu|limpa/i.test(ultimaMsg);
+
     // Padrão: linhas com "Nome – R$ valor – Nx – dia N"
     const linhasResposta = reply.split('\n').map(l => l.trim()).filter(Boolean);
-    const itensParaCriar = linhasResposta.filter(l =>
+    const itensParaCriar = intencaoExcluir ? [] : linhasResposta.filter(l =>
       /R\$/.test(l) && /–/.test(l) && /dia\s*\d/i.test(l)
     ).map(l => l.replace(/^\d+[.)\s]+/, '').trim()); // remove "1. ", "2) " etc
 
