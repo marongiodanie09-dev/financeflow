@@ -2297,7 +2297,10 @@ async function extractAccountFromText(text) {
 
   // ── FORMATO CSV: "Nome, R$ valor, Nx, dia N" ─────────────
   // Detectar se é formato separado por vírgula com pelo menos 3 campos
-  const csvTest = t.replace(/(R\$\s*\d+),(\d{2})/g, '$1.$2'); // proteger decimais
+  // Proteger valores: "R$ 1.200,00" → "R$ 1200.00" | "R$ 20,06" → "R$ 20.06"
+  const csvTest = t
+    .replace(/R\$\s*([\d.]+),(\d{2})\b/g, (_, int, dec) => 'R$ ' + int.replace(/\./g, '') + '.' + dec)
+    .replace(/\b(\d{1,3}(?:\.\d{3})+),(\d{2})\b/g, (_, int, dec) => int.replace(/\./g, '') + '.' + dec);
   const csvPartes = csvTest.split(',').map(p => p.trim()).filter(Boolean);
   if (csvPartes.length >= 2 && (csvPartes.some(p => /R\$|^\d+[xX]$|^dia\s+\d/i.test(p)))) {
     const csvNome = csvPartes[0].replace(/^(cria|adiciona|cadastra)\s+/i, '').trim();
