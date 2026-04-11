@@ -2059,7 +2059,28 @@ async function extractAccountFromText(text) {
   // Valor: R$ 500, 500 reais, valor 500
   const valorMatch = text.match(/R\$\s*([\d.,]+)|([\d.,]+)\s*reais|valor\s+([\d.,]+)/i);
   if (!valorMatch) return null;
-  const value = parseFloat((valorMatch[1] || valorMatch[2] || valorMatch[3]).replace(',', '.'));
+  // Normalizar valor: "2.400" (milhar) → 2400, "2.400,50" → 2400.50, "2400" → 2400
+  const rawVal = (valorMatch[1] || valorMatch[2] || valorMatch[3]).trim();
+  let value;
+  if (/\./.test(rawVal) && /,/.test(rawVal)) {
+    // Formato BR: 2.400,50 → 2400.50
+    value = parseFloat(rawVal.replace(/\./g, '').replace(',', '.'));
+  } else if (/,/.test(rawVal) && !/\./.test(rawVal)) {
+    // Vírgula decimal: 2400,50 → 2400.50
+    value = parseFloat(rawVal.replace(',', '.'));
+  } else if (/\./.test(rawVal)) {
+    // Ponto pode ser milhar (2.400) ou decimal (2.4)
+    const parts = rawVal.split('.');
+    if (parts[parts.length - 1].length === 3) {
+      // Ex: 2.400 → milhar
+      value = parseFloat(rawVal.replace(/\./g, ''));
+    } else {
+      // Ex: 2.40 → decimal
+      value = parseFloat(rawVal);
+    }
+  } else {
+    value = parseFloat(rawVal);
+  }
   if (!value || value <= 0) return null;
 
   // Parcelas: "em 12x", "12 vezes", "parcelado em 6", "6 parcelas"
