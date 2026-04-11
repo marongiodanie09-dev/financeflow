@@ -2187,11 +2187,46 @@ async function sendChat() {
     const data = await response.json();
     const reply = data.reply || 'Desculpe, não consegui processar sua pergunta.';
 
-    const formatted = reply
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br>');
-    addChatMsg(formatted, 'bot');
-    chatHistory.push({ role: 'assistant', content: reply });
+    // ── Detectar se a resposta do Gemini contém uma lista de contas para criar ──
+    // Padrão: linhas com "Nome – R$ valor – Nx – dia N"
+    const linhasResposta = reply.split('\n').map(l => l.trim()).filter(Boolean);
+    const itensParaCriar = linhasResposta.filter(l =>
+      /R\$/.test(l) && /–/.test(l) && /dia\s*\d/i.test(l)
+    ).map(l => l.replace(/^\d+[.)\s]+/, '').trim()); // remove "1. ", "2) " etc
+
+    if (itensParaCriar.length >= 2) {
+      // Mostrar resposta do Gemini primeiro
+      const formatted = reply
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+      addChatMsg(formatted, 'bot');
+      chatHistory.push({ role: 'assistant', content: reply });
+
+      // Perguntar se quer criar
+      const confirmId = 'confirm_' + Date.now();
+      const confirmMsg = document.createElement('div');
+      confirmMsg.className = 'chat-msg bot';
+      confirmMsg.innerHTML = `📋 Detectei <strong>${itensParaCriar.length} contas</strong> na resposta acima. Deseja criá-las no painel agora?
+        <br><br>
+        <button onclick="criarContasDaResposta(${JSON.stringify(itensParaCriar).replace(/'/g, "\'")},'${confirmId}')" 
+          style="background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:.85rem;font-weight:600;margin-right:8px">
+          ✅ Sim, criar todas
+        </button>
+        <button onclick="document.getElementById('${confirmId}').remove()"
+          style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:8px 16px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:.85rem">
+          Não
+        </button>`;
+      confirmMsg.id = confirmId;
+      document.getElementById('chatMsgs').appendChild(confirmMsg);
+      document.getElementById('chatMsgs').scrollTop = document.getElementById('chatMsgs').scrollHeight;
+
+    } else {
+      const formatted = reply
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+      addChatMsg(formatted, 'bot');
+      chatHistory.push({ role: 'assistant', content: reply });
+    }
 
   } catch (err) {
     console.error('Chat error:', err);
@@ -2314,6 +2349,55 @@ async function extractAccountFromText(text) {
 
   return { name, category, value, dueDate, paymentType, status, observation: '', _parcelas, _dia };
 }
+// ── Criar contas a partir da lista gerada pelo Gemini ──
+async function criarContasDaResposta(itens, confirmId) {
+  document.getElementById(confirmId)?.remove();
+
+  const progressMsg = addChatMsg(`⏳ Criando <strong>${itens.length} contas</strong>...`, 'bot');
+  let criadas = 0, erros = 0;
+
+  for (const linha of itens) {
+    try {
+      const ex = await extractAccountFromText('cria ' + linha);
+      if (!ex) { erros++; continue; }
+
+      if (ex._parcelas && ex._parcelas > 1) {
+        const cnt = ex._parcelas;
+        const iv = parseFloat((ex.value / cnt).toFixed(2));
+        const gid = 'g_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+        const startMonth = ST?.curMonth || new Date().toISOString().slice(0,7);
+        let ok = 0;
+        for (let i = 1; i <= cnt; i++) {
+          const mo = addM(startMonth, i - 1);
+          const [y, m] = mo.split('-');
+          const dueDate = `${y}-${m}-${String(ex._dia||10).padStart(2,'0')}`;
+          const created = await createAccount({
+            name: `${ex.name} (${i}/${cnt})`, category: ex.category, value: iv,
+            dueDate, paymentType: ex.paymentType,
+            status: checkLate({ status: 'pendente', dueDate }).status,
+            observation: '', paidDate: null, gid, gNum: i, gTotal: cnt
+          });
+          if (created) { ST.accounts.push(created); ok++; }
+        }
+        if (ok > 0) criadas++;
+      } else {
+        const created = await createAccount({
+          ...ex, paidDate: ex.status === 'pago' ? new Date().toISOString().slice(0,10) : null,
+          gid: null, gNum: null, gTotal: null
+        });
+        if (created) { ST.accounts.push(created); criadas++; } else erros++;
+      }
+    } catch(e) { erros++; }
+  }
+
+  await reloadAndRender();
+  progressMsg.remove();
+  const msg = erros === 0
+    ? `✅ <strong>${criadas} contas</strong> criadas com sucesso no painel!`
+    : `✅ <strong>${criadas} criadas</strong>${erros > 0 ? `, ⚠️ ${erros} com erro` : ''}.`;
+  addChatMsg(msg, 'bot');
+}
+
 document.getElementById('chatSend').addEventListener('click', sendChat);
 
 // ── TOGGLE SENHA (mostrar/ocultar) ──
