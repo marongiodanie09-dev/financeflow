@@ -1992,9 +1992,17 @@ async function sendChat() {
   }
   // Detecta lista: marcadores clássicos OU linhas que parecem contas (têm valor numérico ou parcelas)
   const pareceItem = l => /^[*\-•\d]/.test(l) || /R\$|\d+[.,]\d+|\d+\s*[xX]|parcel|venc/i.test(l);
+
+  // Suporte a lista numerada: "1. Nome: R$ valor" ou "1. Nome R$ valor"
+  // Limpar o prefixo numérico de cada linha
+  const limparPrefixo = l => l
+    .replace(/^\d+[\.\)]\s*/, '')  // remove "1. " ou "1) "
+    .replace(/^[*\-•]\s*/, '')      // remove "* " ou "- "
+    .trim();
+
   const linhas = todasLinhas.length > 1 && todasLinhas.every(pareceItem)
-    ? todasLinhas
-    : todasLinhas.filter(l => /^[*\-•]/.test(l));
+    ? todasLinhas.map(limparPrefixo)
+    : todasLinhas.filter(l => /^[*\-•\d]/.test(l)).map(limparPrefixo);
   if (linhas.length > 1) {
     typingMsg.remove();
 
@@ -2203,8 +2211,8 @@ async function extractAccountFromText(text) {
   // Prioridade: "Nome – R$" > "Nome - R$" > verbo+nome > nome antes de número
   let name = 'Conta';
 
-  // Formato lista: "Notebook Dell – R$ 4.200,00"
-  const mDash = t.match(/^(.+?)\s*[–—-]\s*R\$/i);
+  // Formato lista: "Notebook Dell – R$ 4.200,00" ou "Notebook Dell: R$ 4.200,00"
+  const mDash = t.match(/^(.+?)\s*[–—:\-]\s*R\$/i);
   if (mDash) {
     name = mDash[1].replace(/^(cria|adiciona|cadastra|insere|coloca)\s+/i, '').trim();
   }
