@@ -1971,19 +1971,25 @@ async function sendChat() {
   chatHistory.push({ role: 'user', content: text });
 
   // ── Detectar lista em lote (múltiplas linhas com * ou -) ──
-  // Normalizar: quebrar texto em linha única por padrões que indicam início de novo item
-  // Ex: "dia 15 Notebook Dell" ou "6x Notebook" ou "À vista Fatura"
-  let textoNormalizado = text
-    // Após "dia NN" seguido de letra maiúscula (novo item)
-    .replace(/(dia\s+\d{1,2})\s+(?=[A-ZÀ-Ú])/g, '$1\n')
-    // Após "NNx" ou "NN vezes" seguido de letra maiúscula
-    .replace(/(\d{1,2}\s*[xX])\s+(?=[A-ZÀ-Ú])/g, '$1\n')
-    // Após "À vista" seguido de letra maiúscula
-    .replace(/(à vista)\s+(?=[A-ZÀ-Ú])/gi, '$1\n')
-    // Após "Vencimento: dia NN" no meio da linha
-    .replace(/(Vencimento:\s*dia\s*\d{1,2})\s+(?=[A-ZÀ-Ú])/gi, '$1\n');
+  // Normalizar: detectar itens no texto (em linha única ou múltiplas linhas)
+  let todasLinhas = [];
+  const textLimpo = text.replace(/\s+(criar|adicionar|cadastrar|insira|coloca)\s*$/i, '').trim();
 
-  const todasLinhas = textoNormalizado.split('\n').map(l => l.trim()).filter(Boolean);
+  // Estratégia 1: texto com padrão "Nome – R$ valor" (formato lista com traço)
+  // Extrai cada bloco completo usando findAll
+  const blocosTraco = [];
+  const reBloco = /(.+?[–—\-]\s*R\$[\d.,\s]+(?:Parcelado\s+em\s+\d+\s*[xX])?(?:[^–—\-]*?Vencimento:\s*dia\s*\d{1,2})?)/gi;
+  let mb;
+  while ((mb = reBloco.exec(textLimpo)) !== null) {
+    const bloco = mb[1].trim();
+    if (bloco && /R\$/.test(bloco)) blocosTraco.push(bloco);
+  }
+  if (blocosTraco.length > 1) {
+    todasLinhas = blocosTraco;
+  } else {
+    // Estratégia 2: quebrar por linhas normais
+    todasLinhas = textLimpo.split('\n').map(l => l.trim()).filter(Boolean);
+  }
   // Detecta lista: marcadores clássicos OU linhas que parecem contas (têm valor numérico ou parcelas)
   const pareceItem = l => /^[*\-•\d]/.test(l) || /R\$|\d+[.,]\d+|\d+\s*[xX]|parcel|venc/i.test(l);
   const linhas = todasLinhas.length > 1 && todasLinhas.every(pareceItem)
