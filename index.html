@@ -2124,6 +2124,57 @@ async function sendChat() {
     return;
   }
 
+  // ── Detectar intenção de APAGAR contas ──
+  const apagarMatch = text.match(/apag|delet|remov|exclu|limpa/i);
+  if (apagarMatch) {
+    const todosMatch = /tud|todas|todos|todas as contas|limpar tudo/i.test(text);
+
+    if (todosMatch) {
+      // Apagar TODAS as contas do mês atual
+      const confirmacao = confirm(`Tem certeza que deseja apagar TODAS as ${ST.accounts.length} contas? Esta ação não pode ser desfeita.`);
+      if (confirmacao) {
+        typingMsg.remove();
+        addChatMsg('🗑️ Apagando todas as contas...', 'bot');
+        let apagadas = 0;
+        for (const acc of [...ST.accounts]) {
+          const ok = await deleteAccount(acc.id);
+          if (ok) apagadas++;
+        }
+        await reloadAndRender();
+        addChatMsg(`✅ <strong>${apagadas} contas</strong> removidas com sucesso!`, 'bot');
+        chatHistory.push({ role: 'assistant', content: `${apagadas} contas removidas.` });
+      } else {
+        typingMsg.remove();
+        addChatMsg('Cancelado! Suas contas estão seguras. 😊', 'bot');
+        chatHistory.pop();
+      }
+      sendBtn.disabled = false;
+      return;
+    }
+
+    // Apagar conta específica por nome
+    const nomeMatch = text.match(/(?:apag|delet|remov|exclu)\w*\s+(?:a\s+conta\s+)?["']?([a-zA-ZÀ-ÿ][a-zA-ZÀ-ÿ\s]{1,40}?)["']?(?:\s|$)/i);
+    if (nomeMatch) {
+      const nomeBusca = nomeMatch[1].trim().toLowerCase();
+      const encontradas = ST.accounts.filter(a => a.name.toLowerCase().includes(nomeBusca));
+      if (encontradas.length > 0) {
+        typingMsg.remove();
+        const confirmacao = confirm(`Encontrei ${encontradas.length} conta(s) com "${nomeBusca}". Deseja excluí-las?`);
+        if (confirmacao) {
+          for (const acc of encontradas) await deleteAccount(acc.id);
+          await reloadAndRender();
+          addChatMsg(`✅ ${encontradas.length} conta(s) "<strong>${nomeBusca}</strong>" removida(s)!`, 'bot');
+          chatHistory.push({ role: 'assistant', content: 'Contas removidas.' });
+        } else {
+          addChatMsg('Cancelado! 😊', 'bot');
+          chatHistory.pop();
+        }
+        sendBtn.disabled = false;
+        return;
+      }
+    }
+  }
+
   // ── Detectar intenção de criar conta única ──
   const criarMatch = text.match(/adiciona|cadastra|cria|insere|coloca/i);
   if (criarMatch) {
