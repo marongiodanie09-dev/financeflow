@@ -2033,12 +2033,13 @@ async function sendChat() {
   }
   // Detecta lista: marcadores clássicos OU linhas que parecem contas (têm valor numérico ou parcelas)
   const pareceItem = l => /^[*\-•\d]/.test(l) || /R\$|\d+[.,]\d+|\d+\s*[xX]|parcel|venc/i.test(l);
+  const pareceCSV = l => l.split(',').length >= 3 && /R\$|\d+[xX]/i.test(l);
 
   // Suporte a lista numerada: "1. Nome: R$ valor" ou "1. Nome R$ valor"
   // Limpar o prefixo numérico de cada linha
   const limparPrefixo = l => l
-    .replace(/^\d+[\.\)]\s*/, '')  // remove "1. " ou "1) "
-    .replace(/^[*\-•]\s*/, '')      // remove "* " ou "- "
+    .replace(/^\d+[.)]\s*/, '')   // remove "1. " ou "1) "
+    .replace(/^[*\-•]\s*/, '')     // remove "* " ou "- "
     .trim();
 
   const linhas = todasLinhas.length > 1 && todasLinhas.every(pareceItem)
@@ -2293,6 +2294,52 @@ async function sendChat() {
 // ── Extrai dados de conta/parcela a partir do texto do usuário ──
 async function extractAccountFromText(text) {
   const t = text.trim();
+
+  // ── FORMATO CSV: "Nome, R$ valor, Nx, dia N" ─────────────
+  // Detectar se é formato separado por vírgula com pelo menos 3 campos
+  const csvTest = t.replace(/(R\$\s*\d+),(\d{2})/g, '$1.$2'); // proteger decimais
+  const csvPartes = csvTest.split(',').map(p => p.trim()).filter(Boolean);
+  if (csvPartes.length >= 2 && (csvPartes.some(p => /R\$|^\d+[xX]$|^dia\s+\d/i.test(p)))) {
+    const csvNome = csvPartes[0].replace(/^(cria|adiciona|cadastra)\s+/i, '').trim();
+
+    let csvValue = 0;
+    for (const p of csvPartes.slice(1)) {
+      const m = p.match(/R?\$?\s*([\d.]+)/);
+      if (m) { csvValue = parseFloat(m[1]); break; }
+    }
+
+    let csvParcelas = 1;
+    for (const p of csvPartes) {
+      const m = p.match(/(\d+)\s*[xX]/);
+      if (m) { csvParcelas = parseInt(m[1]); break; }
+    }
+
+    let csvDia = 10;
+    for (const p of csvPartes) {
+      const m = p.match(/dia\s+(\d{1,2})(?!\d)/i);
+      if (m) { csvDia = parseInt(m[1]); break; }
+    }
+
+    if (csvNome && csvValue > 0) {
+      let csvCategory = csvParcelas > 1 ? 'Cartão de Crédito' : 'Outros';
+      const catMap2 = [
+        [/aluguel|condomin/i,'Moradia'],[/mercado|alimenta|comida|ifood/i,'Alimentação'],
+        [/uber|gasolina|transporte/i,'Transporte'],[/saude|medico|farmac/i,'Saúde'],
+        [/escola|faculdade|curso/i,'Educação'],[/netflix|spotify|assinatura/i,'Assinaturas'],
+        [/academia|lazer|cinema/i,'Lazer'],[/pet|veterinario|racao/i,'Pets'],
+        [/roupa/i,'Roupas'],
+      ];
+      for (const [rx,cat] of catMap2) { if (rx.test(csvNome)) { csvCategory = cat; break; } }
+      const csvType = csvParcelas > 1 ? 'Cartão de Crédito' : 'PIX';
+      const ym2 = ST?.curMonth || new Date().toISOString().slice(0,7);
+      return {
+        name: csvNome, category: csvCategory, value: csvValue,
+        dueDate: `${ym2}-${String(csvDia).padStart(2,'0')}`,
+        paymentType: csvType, status: 'pendente', observation: '',
+        _parcelas: csvParcelas, _dia: csvDia
+      };
+    }
+  }
 
   // ── 1. NOME ─────────────────────────────────────────────
   // Prioridade: "Nome – R$" > "Nome - R$" > verbo+nome > nome antes de número
