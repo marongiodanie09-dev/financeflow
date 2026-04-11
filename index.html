@@ -2202,23 +2202,34 @@ async function sendChat() {
       addChatMsg(formatted, 'bot');
       chatHistory.push({ role: 'assistant', content: reply });
 
-      // Perguntar se quer criar
+      // Perguntar se quer criar — armazenar itens no window para evitar problema com onclick inline
       const confirmId = 'confirm_' + Date.now();
+      const storageKey = 'pendingItems_' + confirmId;
+      window[storageKey] = itensParaCriar;
+
       const confirmMsg = document.createElement('div');
       confirmMsg.className = 'chat-msg bot';
-      confirmMsg.innerHTML = `📋 Detectei <strong>${itensParaCriar.length} contas</strong> na resposta acima. Deseja criá-las no painel agora?
-        <br><br>
-        <button onclick="criarContasDaResposta(${JSON.stringify(itensParaCriar).replace(/'/g, "\'")},'${confirmId}')" 
+      confirmMsg.id = confirmId;
+      confirmMsg.innerHTML = `📋 Detectei <strong>${itensParaCriar.length} contas</strong> na resposta acima. Deseja criá-las no painel agora?<br><br>
+        <button id="btn_sim_${confirmId}"
           style="background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:.85rem;font-weight:600;margin-right:8px">
           ✅ Sim, criar todas
         </button>
-        <button onclick="document.getElementById('${confirmId}').remove()"
+        <button id="btn_nao_${confirmId}"
           style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:8px 16px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:.85rem">
           Não
         </button>`;
-      confirmMsg.id = confirmId;
       document.getElementById('chatMsgs').appendChild(confirmMsg);
       document.getElementById('chatMsgs').scrollTop = document.getElementById('chatMsgs').scrollHeight;
+
+      document.getElementById('btn_sim_' + confirmId).addEventListener('click', () => {
+        criarContasDaResposta(window[storageKey], confirmId);
+        delete window[storageKey];
+      });
+      document.getElementById('btn_nao_' + confirmId).addEventListener('click', () => {
+        confirmMsg.remove();
+        delete window[storageKey];
+      });
 
     } else {
       const formatted = reply
