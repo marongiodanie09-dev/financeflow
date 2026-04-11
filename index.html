@@ -2094,8 +2094,11 @@ async function extractAccountFromText(text) {
   let name = 'Conta';
   const nomeMatch = text.match(/nome\s+([^,\.0-9]+?)(?:\s+R\$|\s+\d|\s+em\s|\s+parcel|$)/i) ||
                     text.match(/chamad[ao]\s+([^,\.]+)/i) ||
-                    text.match(/(?:adiciona|cadastra|cria|insere|coloca)\s+(?:uma?\s+)?([a-zA-ZÀ-ú][a-zA-ZÀ-ú\s]{2,30}?)(?:\s+R\$|\s+\d|\s+em\s|\s+parcel|,|$)/i);
-  if (nomeMatch) name = nomeMatch[1].trim().replace(/\s+/g, ' ');
+                    text.match(/(?:adiciona|cadastra|cria|insere|coloca)\s+(?:uma?\s+)?([a-zA-ZÀ-ú][a-zA-ZÀ-ú\s]{0,30}?)(?:\s+R\$|\s+\d|\s+em\s|\s+parcel|,|$)/i);
+  if (nomeMatch) {
+    name = nomeMatch[1].trim().replace(/\s+/g, ' ');
+    if (!name) name = 'Conta';
+  }
 
   // Categoria por palavra-chave
   const catMap = [
