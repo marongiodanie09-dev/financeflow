@@ -2350,41 +2350,66 @@ async function sendChat() {
 async function extractAccountFromText(text) {
   const t = text.trim();
 
-  // ── FORMATO CSV: "Nome, R$ valor, Nx, dia N" ─────────────
-  // Detectar se é formato separado por vírgula com pelo menos 3 campos
-  // Proteger valores: "R$ 1.200,00" → "R$ 1200.00" | "R$ 20,06" → "R$ 20.06"
-  const csvTest = t
-    .replace(/R\$\s*([\d.]+),(\d{2})\b/g, (_, int, dec) => 'R$ ' + int.replace(/\./g, '') + '.' + dec)
-    .replace(/\b(\d{1,3}(?:\.\d{3})+),(\d{2})\b/g, (_, int, dec) => int.replace(/\./g, '') + '.' + dec);
-  const csvPartes = csvTest.split(',').map(p => p.trim()).filter(Boolean);
-  if (csvPartes.length >= 2 && (csvPartes.some(p => /R\$|^\d+[xX]$|^dia\s+\d/i.test(p)))) {
-    const csvNome = csvPartes[0].replace(/^(cria|adiciona|cadastra)\s+/i, '').trim();
-
+  // ── FORMATO CSV: qualquer ordem, com ou sem R$ ──
+  const isCSV = /,/.test(t) && (
+    /R\$/.test(t) || /\d+\s*[xX]\b/.test(t) || /dia\s+\d/i.test(t) ||
+    /,\s*\d+(?:[.,]\d+)?\s*,/.test(t)
+  );
+  if (isCSV) {
     let csvValue = 0;
-    for (const p of csvPartes.slice(1)) {
-      const m = p.match(/R?\$?\s*([\d.]+)/);
-      if (m) { csvValue = parseFloat(m[1]); break; }
+    let tSemVal = t;
+
+    // Tentar com R$ primeiro
+    const valM = t.match(/R\$\s*([\d.]+),(\d{2})\b/);
+    if (valM) {
+      csvValue = parseFloat(valM[1].replace(/\./g,'') + '.' + valM[2]);
+      tSemVal = t.slice(0, valM.index) + t.slice(valM.index + valM[0].length);
+    } else {
+      const valM2 = t.match(/R\$\s*([\d.,]+)/);
+      if (valM2) {
+        csvValue = parseFloat(valM2[1].replace(/\./g,'').replace(',','.'));
+        tSemVal = t.slice(0, valM2.index) + t.slice(valM2.index + valM2[0].length);
+      } else {
+        // Sem R$: remover parcelas e dia, pegar o número que sobrar
+        let tTemp = t
+          .replace(/\b\d+\s*[xX]\b/g, '')
+          .replace(/dia\s+\d{1,2}/gi, '');
+        const valM3 = tTemp.match(/,\s*(\d+(?:[.,]\d+)?)\s*(?:,|$)/);
+        if (valM3) {
+          csvValue = parseFloat(valM3[1].replace(',','.'));
+          // Remover esse número do texto original
+          const numIdx = t.indexOf(valM3[1]);
+          if (numIdx > -1) tSemVal = t.slice(0, numIdx) + t.slice(numIdx + valM3[1].length);
+        }
+      }
     }
 
-    let csvParcelas = 1;
-    for (const p of csvPartes) {
-      const m = p.match(/(\d+)\s*[xX]/);
-      if (m) { csvParcelas = parseInt(m[1]); break; }
-    }
+    // Parcelas
+    const parcM = t.match(/\b(\d+)\s*[xX]\b/);
+    const csvParcelas = parcM ? parseInt(parcM[1]) : 1;
+    tSemVal = tSemVal.replace(/\b\d+\s*[xX]\b/g, '');
 
-    let csvDia = 10;
-    for (const p of csvPartes) {
-      const m = p.match(/dia\s+(\d{1,2})(?!\d)/i);
-      if (m) { csvDia = parseInt(m[1]); break; }
-    }
+    // Dia
+    const diaM = t.match(/dia\s+(\d{1,2})(?!\d)/i);
+    const csvDia = diaM ? parseInt(diaM[1]) : 10;
+    tSemVal = tSemVal.replace(/dia\s+\d{1,2}/gi, '');
+
+    // Nome = o que sobrar
+    let csvNome = tSemVal.replace(/,+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^[,\s]+|[,\s]+$/g, '');
+    csvNome = csvNome.replace(/^(cria|adiciona|cadastra|insere|coloca)\s+/i, '').trim();
 
     if (csvNome && csvValue > 0) {
       let csvCategory = csvParcelas > 1 ? 'Cartão de Crédito' : 'Outros';
       const catMap2 = [
-        [/aluguel|condomin/i,'Moradia'],[/mercado|alimenta|comida|ifood/i,'Alimentação'],
-        [/uber|gasolina|transporte/i,'Transporte'],[/saude|medico|farmac/i,'Saúde'],
-        [/escola|faculdade|curso/i,'Educação'],[/netflix|spotify|assinatura/i,'Assinaturas'],
-        [/academia|lazer|cinema/i,'Lazer'],[/pet|veterinario|racao/i,'Pets'],
+        [/aluguel|condomin|luz|energia|agua|gas/i,'Moradia'],
+        [/mercado|alimenta|comida|ifood|rappi/i,'Alimentação'],
+        [/internet|vivo|claro|tim|oi\b/i,'Assinaturas'],
+        [/uber|gasolina|transporte|onibus/i,'Transporte'],
+        [/saude|medico|farmac|plano/i,'Saúde'],
+        [/escola|faculdade|curso/i,'Educação'],
+        [/netflix|spotify|assinatura|streaming|disney/i,'Assinaturas'],
+        [/academia|lazer|cinema/i,'Lazer'],
+        [/pet|veterinario|racao/i,'Pets'],
         [/roupa/i,'Roupas'],
       ];
       for (const [rx,cat] of catMap2) { if (rx.test(csvNome)) { csvCategory = cat; break; } }
