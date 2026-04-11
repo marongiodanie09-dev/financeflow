@@ -273,7 +273,19 @@ sb.auth.onAuthStateChange((event, session) => {
 <!-- ═══════════════════════════════
      SCREEN: LOGIN
      ═══════════════════════════════ -->
-<div class="screen active" id="s-login">
+
+<!-- ═══════════════════════════════
+     LOADING INICIAL
+     ═══════════════════════════════ -->
+<div id="s-loading" style="position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:9999">
+  <div style="display:flex;align-items:center;gap:10px;font-size:1.1rem">
+    <span style="font-size:1.6rem;color:var(--accent)">◈</span>
+    Finance<strong style="color:var(--accent)">Flow</strong>
+  </div>
+  <div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite"></div>
+</div>
+
+<div class="screen" id="s-login">
   <div class="auth-bg"><div class="bg-grid"></div><div class="bg-glow"></div></div>
   <div class="auth-wrap">
     <div class="auth-left">
@@ -972,7 +984,7 @@ function toast(m,t='success'){const el=document.getElementById('toast');el.textC
 // ═══════════════════════════════════════════════════════════
 // SCREEN ROUTER
 // ═══════════════════════════════════════════════════════════
-function goTo(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');if(id!=='s-dash'){document.getElementById('chatFab').style.display='none';closeChat()}}
+function goTo(id){const loading=document.getElementById('s-loading');if(loading)loading.style.display='none';document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');if(id!=='s-dash'){document.getElementById('chatFab').style.display='none';closeChat()}}
 
 async function startApp() {
   const r = await Auth.check();
@@ -1814,8 +1826,18 @@ const sb = window.supabaseClient;
 }
 
 (async () => {
-  startApp();
-  await checkSession();
+  try {
+    await checkSession();
+  } catch(e) {
+    console.error('checkSession error:', e);
+  }
+  // Se nenhuma screen ficou ativa (sem sessão), mostrar login
+  const anyActive = document.querySelector('.screen.active');
+  if (!anyActive) {
+    const loading = document.getElementById('s-loading');
+    if (loading) loading.style.display = 'none';
+    goTo('s-login');
+  }
 })();
 
 // ═══════════════════════════════════════════════════════════
@@ -2057,10 +2079,10 @@ async function sendChat() {
 // ── Extrai dados de conta/parcela a partir do texto do usuário ──
 async function extractAccountFromText(text) {
   // Valor: R$ 500, 500 reais, valor 500
-  const valorMatch = text.match(/R\$\s*([\d.,]+)|([\d.,]+)\s*reais|valor\s+([\d.,]+)/i);
+  const valorMatch = text.match(/R\$\s*([\d.,]+)|([\d.,]+)\s*reais|valor\s+([\d.,]+)|(?:^|\s)(\d[\d.]*(?:,\d{1,2})?)(?=\s|$|,|\s*parcel|\s*em\s*\d)/i);
   if (!valorMatch) return null;
   // Normalizar valor: "2.400" (milhar) → 2400, "2.400,50" → 2400.50, "2400" → 2400
-  const rawVal = (valorMatch[1] || valorMatch[2] || valorMatch[3]).trim();
+  const rawVal = (valorMatch[1] || valorMatch[2] || valorMatch[3] || valorMatch[4] || '').trim();
   let value;
   if (/\./.test(rawVal) && /,/.test(rawVal)) {
     // Formato BR: 2.400,50 → 2400.50
