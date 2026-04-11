@@ -2151,84 +2151,90 @@ async function sendChat() {
 
 // ── Extrai dados de conta/parcela a partir do texto do usuário ──
 async function extractAccountFromText(text) {
-  // Valor: R$ 500, 500 reais, valor 500
-  const valorMatch = text.match(/R\$\s*([\d.,]+)|([\d.,]+)\s*reais|valor\s+([\d.,]+)|(?:^|\s)(\d[\d.]*(?:,\d{1,2})?)(?=\s|$|,|\s*parcel|\s*em\s*\d)/i);
-  if (!valorMatch) return null;
-  // Normalizar valor: "2.400" (milhar) → 2400, "2.400,50" → 2400.50, "2400" → 2400
-  const rawVal = (valorMatch[1] || valorMatch[2] || valorMatch[3] || valorMatch[4] || '').trim();
-  let value;
-  if (/\./.test(rawVal) && /,/.test(rawVal)) {
-    // Formato BR: 2.400,50 → 2400.50
-    value = parseFloat(rawVal.replace(/\./g, '').replace(',', '.'));
-  } else if (/,/.test(rawVal) && !/\./.test(rawVal)) {
-    // Vírgula decimal: 2400,50 → 2400.50
-    value = parseFloat(rawVal.replace(',', '.'));
-  } else if (/\./.test(rawVal)) {
-    // Ponto pode ser milhar (2.400) ou decimal (2.4)
-    const parts = rawVal.split('.');
-    if (parts[parts.length - 1].length === 3) {
-      // Ex: 2.400 → milhar
-      value = parseFloat(rawVal.replace(/\./g, ''));
-    } else {
-      // Ex: 2.40 → decimal
-      value = parseFloat(rawVal);
-    }
-  } else {
-    value = parseFloat(rawVal);
+  const t = text.trim();
+
+  // ── 1. NOME ─────────────────────────────────────────────
+  // Prioridade: "Nome – R$" > "Nome - R$" > verbo+nome > nome antes de número
+  let name = 'Conta';
+
+  // Formato lista: "Notebook Dell – R$ 4.200,00"
+  const mDash = t.match(/^(.+?)\s*[–—-]\s*R\$/i);
+  if (mDash) {
+    name = mDash[1].replace(/^(cria|adiciona|cadastra|insere|coloca)\s+/i, '').trim();
   }
+
+  if (name === 'Conta') {
+    // Após verbo: "cria Notebook Dell R$ ..."
+    const mVerb = t.match(/(?:adiciona|cadastra|cria|insere|coloca)\s+(?:uma?\s+)?([a-zA-ZÀ-ÿ][a-zA-ZÀ-ÿ\s]{0,40}?)(?:\s+R\$|\s+\d{2,}|\s+em\s|\s+parcel|,|$)/i);
+    if (mVerb) name = mVerb[1].replace(/\s+(parcelado|à vista|vencimento|em)$/i, '').trim();
+  }
+
+  if (name === 'Conta') {
+    // Nome antes do primeiro número: "TV 1800 em 6x" / "Celular Samsung 2700 ..."
+    const mNum = t.match(/^([a-zA-ZÀ-ÿ][a-zA-ZÀ-ÿ\s]{0,40}?)\s+\d/i);
+    if (mNum) name = mNum[1].replace(/\s+(parcelado|à vista|vencimento|em)$/i, '').trim();
+  }
+
+  if (!name || name.length < 1) name = 'Conta';
+
+  // ── 2. VALOR ─────────────────────────────────────────────
+  // Buscar TODOS os números do texto e pegar o maior (evita pegar o dia como valor)
+  // Formatos: R$ 1.800,00 / R$ 1800 / 1.800,00 / 1800
+  const allValues = [];
+  const reVal = /R\$\s*([\d.,]+)|([\d]{3,}(?:[.,][\d]{2})?)/gi;
+  let m;
+  while ((m = reVal.exec(t)) !== null) {
+    const raw = (m[1] || m[2] || '').trim();
+    if (!raw) continue;
+    let v;
+    if (raw.includes('.') && raw.includes(',')) {
+      v = parseFloat(raw.replace(/\./g, '').replace(',', '.'));
+    } else if (raw.includes(',')) {
+      v = parseFloat(raw.replace(',', '.'));
+    } else if (raw.includes('.')) {
+      const parts = raw.split('.');
+      v = parts[parts.length - 1].length === 3
+        ? parseFloat(raw.replace(/\./g, ''))
+        : parseFloat(raw);
+    } else {
+      v = parseFloat(raw);
+    }
+    if (v > 0) allValues.push(v);
+  }
+  // Pegar o maior valor encontrado (o valor da conta, não o dia)
+  const value = allValues.length > 0 ? Math.max(...allValues) : 0;
   if (!value || value <= 0) return null;
 
-  // Parcelas: "em 12x", "12 vezes", "parcelado em 6", "6 parcelas"
+  // ── 3. PARCELAS ──────────────────────────────────────────
   let _parcelas = 1;
-  const parcelasMatch = text.match(/em\s*(\d+)\s*[xX]|(\d+)\s*vezes|parcelado\s*em\s*(\d+)|(\d+)\s*parcelas/i);
-  if (parcelasMatch) {
-    _parcelas = parseInt(parcelasMatch[1] || parcelasMatch[2] || parcelasMatch[3] || parcelasMatch[4]);
+  const mParc = t.match(/em\s*(\d+)\s*[xX]|(\d+)\s*[xX]|(\d+)\s*vezes|parcelado\s*em\s*(\d+)|(\d+)\s*parcelas/i);
+  if (mParc) {
+    _parcelas = parseInt(mParc[1] || mParc[2] || mParc[3] || mParc[4] || mParc[5]);
   }
 
-  // Nome: "nome X", "chamada X", ou palavra após verbo (excluindo números e palavras-chave)
-  let name = 'Conta';
-  // Tentar pegar nome em vários formatos
-  const nomeMatch =
-    // "Nome – R$" ou "Nome - R$"
-    text.match(/^([^–\-\d][^–\-R$\d]{0,40}?)\s*[–\-]\s*R\$/i) ||
-    // "nome X" explícito
-    text.match(/nome\s+([^,\.0-9]+?)(?:\s+R\$|\s+\d|\s+em\s|\s+parcel|$)/i) ||
-    // "chamado X"
-    text.match(/chamad[ao]\s+([^,\.]+)/i) ||
-    // após verbo: "cria Notebook Dell R$..."
-    text.match(/(?:adiciona|cadastra|cria|insere|coloca)\s+(?:uma?\s+)?([a-zA-ZÀ-ú][a-zA-ZÀ-ú\s]{0,40}?)(?:\s+R\$|\s+\d{3,}|\s+em\s|\s+parcel|,|$)/i) ||
-    // nome antes do primeiro número: "TV 1800 em 6x"
-    text.match(/^([a-zA-ZÀ-ú][a-zA-ZÀ-ú\s]{0,40}?)\s+(?=\d)/i);
+  // ── 4. DIA DE VENCIMENTO ─────────────────────────────────
+  let _dia = 10;
+  const mDia = t.match(/vencimento[:\s]+dia\s+(\d{1,2})|dia\s+(\d{1,2})/i);
+  if (mDia) _dia = parseInt(mDia[1] || mDia[2]);
 
-  if (nomeMatch) {
-    name = nomeMatch[1].trim().replace(/\s+/g, ' ')
-      .replace(/^(cria|adiciona|cadastra|insere|coloca)\s+/i, '')
-      .replace(/\s+(parcelado|à vista|vencimento|em)$/i, '')
-      .trim();
-    if (!name || name.length < 1) name = 'Conta';
-  }
-
-  // Categoria por palavra-chave
+  // ── 5. CATEGORIA ─────────────────────────────────────────
   const catMap = [
     [/aluguel|condomin/i, 'Moradia'],
     [/mercado|alimenta|comida|restaurante|ifood|rappi/i, 'Alimentação'],
     [/uber|99|gasolina|transporte|onibus|metro/i, 'Transporte'],
-    [/saude|medico|farmac|remedio|plano/i, 'Saúde'],
+    [/saude|medico|farmac|remedio|plano\s+de\s+saude/i, 'Saúde'],
     [/escola|faculdade|curso|educa/i, 'Educação'],
     [/netflix|spotify|disney|amazon|assinatura|streaming/i, 'Assinaturas'],
-    [/cartao|credito/i, 'Cartão de Crédito'],
     [/academia|lazer|cinema|viagem/i, 'Lazer'],
     [/pet|veterinario|racao/i, 'Pets'],
     [/roupa|vestuario/i, 'Roupas'],
   ];
-  let category = 'Outros';
-  // Se parcelado, categoria padrão é Cartão de Crédito
-  if (_parcelas > 1) category = 'Cartão de Crédito';
+  let category = _parcelas > 1 ? 'Cartão de Crédito' : 'Outros';
   for (const [rx, cat] of catMap) {
-    if (rx.test(text)) { category = cat; break; }
+    if (rx.test(t)) { category = cat; break; }
   }
 
-  // Tipo de pagamento
+  // ── 6. TIPO DE PAGAMENTO ─────────────────────────────────
   const typeMap = [
     [/pix/i, 'PIX'],
     [/boleto/i, 'Boleto'],
@@ -2237,24 +2243,20 @@ async function extractAccountFromText(text) {
     [/cartao|credito|parcel/i, 'Cartão de Crédito'],
     [/dinheiro|especie/i, 'Dinheiro'],
     [/transfer/i, 'Transferência'],
+    [/à vista/i, 'PIX'],
   ];
   let paymentType = _parcelas > 1 ? 'Cartão de Crédito' : 'PIX';
   for (const [rx, tp] of typeMap) {
-    if (rx.test(text)) { paymentType = tp; break; }
+    if (rx.test(t)) { paymentType = tp; break; }
   }
 
-  // Dia de vencimento
-  let _dia = 10;
-  const diaMatch = text.match(/dia\s+(\d{1,2})|venc[ae]\s+(?:no\s+dia\s+)?(\d{1,2})/i);
-  if (diaMatch) _dia = parseInt(diaMatch[1] || diaMatch[2]);
+  // ── 7. STATUS ────────────────────────────────────────────
+  let status = 'pendente';
+  if (/pago|paguei|ja paguei/i.test(t)) status = 'pago';
+  if (/atrasad|venceu/i.test(t)) status = 'atrasado';
 
   const ym = ST?.curMonth || new Date().toISOString().slice(0, 7);
   const dueDate = `${ym}-${String(_dia).padStart(2, '0')}`;
-
-  // Status (só aplicável a conta simples)
-  let status = 'pendente';
-  if (/pago|paguei|ja paguei/i.test(text)) status = 'pago';
-  if (/atrasad|venceu/i.test(text)) status = 'atrasado';
 
   return { name, category, value, dueDate, paymentType, status, observation: '', _parcelas, _dia };
 }
