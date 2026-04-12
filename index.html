@@ -1020,6 +1020,28 @@ function showBlocked(r){
 // LOGIN
 // ==========================================================
 
+function traduzirErroSupabase(msg) {
+  if (!msg) return 'Ocorreu um erro. Tente novamente.';
+  const m = msg.toLowerCase();
+  if (m.includes('invalid login credentials') || m.includes('invalid credentials'))
+    return 'E-mail ou senha incorretos.';
+  if (m.includes('email not confirmed'))
+    return 'E-mail não confirmado. Verifique sua caixa de entrada e clique no link de confirmação.';
+  if (m.includes('user already registered') || m.includes('already registered'))
+    return 'Este e-mail já está cadastrado. Tente fazer login.';
+  if (m.includes('password should be at least'))
+    return 'A senha deve ter no mínimo 6 caracteres.';
+  if (m.includes('unable to validate email address'))
+    return 'E-mail inválido. Verifique o endereço digitado.';
+  if (m.includes('email rate limit') || m.includes('rate limit'))
+    return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+  if (m.includes('network') || m.includes('fetch'))
+    return 'Erro de conexão. Verifique sua internet.';
+  if (m.includes('signup is disabled'))
+    return 'Cadastro temporariamente desativado. Entre em contato com o suporte.';
+  return msg;
+}
+
 function setLoginAlert(m, t){
   const el = document.getElementById('loginAlert');
   el.textContent = m;
@@ -1075,7 +1097,7 @@ async function doLogin(){
     if(error || !data?.user){
       clearTimeout(safetyTimer);
       setLoginLoad(false);
-      setLoginAlert(error?.message || 'Credenciais inválidas.', 'error');
+      setLoginAlert(traduzirErroSupabase(error?.message || 'Credenciais inválidas.'), 'error');
       return;
     }
 
@@ -1771,7 +1793,15 @@ async function doCadastro() {
 
   if (result.error) {
     cadAlert.className = 'alert error';
-    cadAlert.textContent = result.error.message;
+    cadAlert.textContent = traduzirErroSupabase(result.error.message);
+    cadAlert.style.display = 'block';
+    return;
+  }
+
+  // Supabase retorna identities vazio quando o e-mail já existe mas não foi confirmado
+  if (result.data?.user && result.data.user.identities?.length === 0) {
+    cadAlert.className = 'alert error';
+    cadAlert.textContent = 'Este e-mail já está cadastrado. Tente fazer login ou verifique sua caixa de entrada para confirmar o e-mail.';
     cadAlert.style.display = 'block';
     return;
   }
