@@ -1757,9 +1757,8 @@ async function doCadastro() {
     document.getElementById('errCTermos').textContent = 'Aceite os termos.';
     return;
   }
-// Criar usuário no Supabase
 
-document.getElementById('cTermos').checked = false;
+  // Criar usuário no Supabase
   const result = await sb.auth.signUp({
     email: email,
     password: senha,
@@ -1770,26 +1769,28 @@ document.getElementById('cTermos').checked = false;
     }
   });
 
-if (result.error) {
-  cadAlert.textContent = result.error.message;
+  if (result.error) {
+    cadAlert.className = 'alert error';
+    cadAlert.textContent = result.error.message;
+    cadAlert.style.display = 'block';
+    return;
+  }
+
+  cadAlert.className = 'alert success';
+  cadAlert.textContent =
+    `Conta criada com sucesso! 📩 Enviamos um e-mail de confirmação para ${email}. Verifique sua caixa de entrada e também a pasta de spam.`;
+
+  document.getElementById('cNome').value = '';
+  document.getElementById('cEmail').value = '';
+  document.getElementById('cSenha').value = '';
+  document.getElementById('cConf').value = '';
+  document.getElementById('cTermos').checked = false;
+
   cadAlert.style.display = 'block';
-  return;
-}
 
-cadAlert.textContent =
-`Conta criada com sucesso! 📩 Enviamos um e-mail de confirmação para ${email}. Verifique sua caixa de entrada e também a pasta de spam.`;
-
-document.getElementById('cNome').value = '';
-document.getElementById('cEmail').value = '';
-document.getElementById('cSenha').value = '';
-document.getElementById('cConf').value = '';
-document.getElementById('cTermos').checked = false;
-
-cadAlert.style.display = 'block';
-
-setTimeout(() => {
-  goTo('s-login');
-}, 1500);
+  setTimeout(() => {
+    goTo('s-login');
+  }, 3000);
 }
 async function checkSession() {
 const sb = window.supabaseClient;
